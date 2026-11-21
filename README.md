@@ -2,6 +2,69 @@
 
 An interactive AI workspace built on **Next.js 16**, **React 19**, **OpenUI**, and **D3 + Motion** that streams structured, context-aware Generative UI directly inside **Chat**, **Explore**, and **Pinboard** views.
 
+<p align="center">
+  <img src="docs/screenshots/01-chat-home.jpg" alt="Momo Chat Home" width="100%" />
+</p>
+
+<p align="center">
+  <em><strong>Chat Home</strong>: Interactive 3D Momo companion with glowing visor lighting, adaptive time-of-day greeting, role switcher, peaked attachment fan (Foto, Catatan, Jadwal, Berkas), and model/reasoning effort dock.</em>
+</p>
+
+---
+
+## Workspaces: Explore & Pinboard
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/02-explore-home.jpg" alt="Momo Explore Home" width="100%" />
+      <br />
+      <strong>Explore Workspace</strong>
+      <br />
+      Editorial research launcher with live local weather context, ambient role sketches, open topic prompt, and four starter tracks (<em>Riset</em>, <em>Rencana</em>, <em>Eksplorasi</em>, <em>Analisis</em>) that stream into horizontal magazine spreads.
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/03-pinboard-canvas.jpg" alt="Momo Pinboard Spatial Canvas" width="100%" />
+      <br />
+      <strong>Pinboard Spatial Canvas</strong>
+      <br />
+      Pan-and-zoom spatial board (<code>Kanvas</code> / <code>Grid</code>) organizing multi-lane session plans with verified web photography, handwritten marginalia notes, custom drag-and-drop, and tilted vinyl priority stickers.
+    </td>
+  </tr>
+</table>
+
+---
+
+## Live Chat Sessions (Generative UI in Action)
+
+<table>
+  <tr>
+    <td width="33.3%" valign="top">
+      <img src="docs/screenshots/04-chat-chef-cards.jpg" alt="Chef Role Curated Recipe Cards" width="100%" />
+      <br />
+      <strong>Chef Role · Curated Visual Cards</strong>
+      <br />
+      Handwritten user prompt paired with live thinking telemetry (token &amp; timing reels), grounded photo search, tag filter tabs, and spec-stripped recipe cards with verified photography.
+    </td>
+    <td width="33.3%" valign="top">
+      <img src="docs/screenshots/05-chat-dossier-catalog.jpg" alt="Visual Dossier and Catalog Shelf" width="100%" />
+      <br />
+      <strong>Editorial Dossier &amp; Catalog Shelf</strong>
+      <br />
+      Magazine-grade <code>Headline</code>, <code>VisualDossier</code> (telemetry ribbon, coordinates, verified stage photo, tilted highlight icons), and an expandable <code>CatalogShelf</code> tracklist inside a single stream.
+    </td>
+    <td width="33.3%" valign="top">
+      <img src="docs/screenshots/06-chat-maker-intelligence.jpg" alt="Maker Role Engineering Intelligence" width="100%" />
+      <br />
+      <strong>Maker Role · Code Diff &amp; Root Cause</strong>
+      <br />
+      <code>ExecutiveSummary</code> key takeaways, interactive <code>CodeDiffPatch</code> (<code>Both / Before / After</code>), and an adaptive 2-column <code>RootCauseAnalysis</code> matrix with grounded source citations.
+    </td>
+  </tr>
+</table>
+
+---
+
 ## Core Capabilities
 
 - **Three Synchronized Workspaces**
