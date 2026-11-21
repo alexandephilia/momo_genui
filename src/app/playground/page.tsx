@@ -863,6 +863,9 @@ export default function PlaygroundPage() {
           entry.spec.description.toLowerCase().includes(q)
         );
       });
+      matches.sort((a, b) =>
+        a.spec.componentId.localeCompare(b.spec.componentId),
+      );
       return { ...cat, entries: matches };
     }).filter((s0) => s0.entries.length > 0);
   }, [intelList, libraryFilter, q]);

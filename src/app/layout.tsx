@@ -8,6 +8,7 @@ import {
 } from "next/font/google";
 import type { ReactNode } from "react";
 import { MotionProvider } from "@/components/providers/MotionProvider";
+import { ThemeInitScript } from "./theme-script";
 import "./globals.css";
 
 const instrumentSans = Instrument_Sans({
@@ -76,20 +77,6 @@ html:not(.theme-ready) *::before,
 html:not(.theme-ready) *::after { transition: none !important; }
 `;
 
-const THEME_INIT_SCRIPT = `(() => {
-  try {
-    const raw = localStorage.getItem("momo.theme");
-    const t = raw === "dark" || raw === "light"
-      ? raw
-      : (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
-    const el = document.documentElement;
-    el.dataset.theme = t;
-    el.style.colorScheme = t;
-    const metas = document.querySelectorAll('meta[name="theme-color"]');
-    metas.forEach((m) => m.setAttribute("content", t === "dark" ? "#0c0d10" : "#efefef"));
-  } catch {}
-})();`;
-
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html
@@ -100,7 +87,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <head>
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
         <style id="momo-critical-theme" dangerouslySetInnerHTML={{ __html: CRITICAL_THEME_CSS }} />
-        <script id="momo-theme-init" dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+        <ThemeInitScript />
       </head>
       <body className={instrumentSans.className}>
         <MotionProvider>{children}</MotionProvider>
