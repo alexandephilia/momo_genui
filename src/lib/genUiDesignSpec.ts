@@ -4,7 +4,7 @@ import {
 } from "@/lib/roleWorkspaceRegistry";
 import { buildMomoSubsetOpenUiPrompt } from "@/lib/openui/momoSchema";
 import { contentContractPrompt } from "@/lib/openui/contentContracts";
-import { WRITING_CRAFT, formatRolePersona, getRolePersona } from "@/lib/rolePersonas";
+import { buildWritingCraft, formatRegisterLock, formatRolePersona, getRolePersona } from "@/lib/rolePersonas";
 import type {
   UiInteractionPayload,
   WorkspaceSnapshotPayload,
@@ -22,6 +22,7 @@ interface TurnContextSignals {
   quantitativeData: boolean;
   architectureFlow: boolean;
   deepAnalytical: boolean;
+  newsIntent: boolean;
   imageQueries: string[];
   recommendedComponents: string[];
   mode: UiCompositionMode;
@@ -41,12 +42,12 @@ const SURFACE_HINTS: Record<WorkspaceViewId, string> = {
  * Roles set analytical posture and capability bias — never a rigid cage.
  */
 export const ROLE_PREFERRED_FAMILIES: Record<string, string[]> = {
-  rest: ["VisualDossier", "ExecutiveSummary", "FactCheckPanel", "Map", "Versus", "Cards", "CatalogShelf", "AnnotatedSheet", "RegionalShowcase", "Table", "Steps", "Adjuster", "BentoGrid", "SwotAnalysis"],
+  rest: ["VisualDossier", "NewsFeed", "ExecutiveSummary", "FactCheckPanel", "Map", "Versus", "Cards", "CatalogShelf", "AnnotatedSheet", "RegionalShowcase", "Table", "Steps", "Adjuster", "BentoGrid", "SwotAnalysis"],
   traveller: ["TransitRouteCard", "VisualDossier", "Map", "Plan", "ImageWithCaption", "Versus", "BentoGrid", "Adjuster", "Cards", "Checklist", "Stats"],
   designer: ["MoodboardMosaic", "Palette", "ImageComparison", "ImageGallery", "Cards", "TradeoffMatrix", "BentoGrid", "Diagram", "Checklist", "Headline"],
   money: ["Adjuster", "CostBenefitAnalysis", "Stats", "KpiCard", "LineChart", "PieChart", "ComparisonTable", "DataTable", "Scorecard", "BentoGrid"],
   bug: ["RootCauseAnalysis", "CodeDiffPatch", "Callout", "Diagram", "Code", "Steps", "Flow", "Checklist", "Timeline", "BentoGrid"],
-  investigate: ["FactCheckPanel", "ClaimEvidenceMap", "EvidenceCard", "KeyFindings", "QuoteExtraction", "SituationalOverview", "Timeline", "DecisionTree", "BentoGrid"],
+  investigate: ["FactCheckPanel", "ClaimEvidenceMap", "EvidenceCard", "KeyFindings", "NewsFeed", "QuoteExtraction", "SituationalOverview", "Timeline", "DecisionTree", "BentoGrid"],
   captain: ["SituationalOverview", "RiskMatrix", "TradeoffMatrix", "CodeDiffPatch", "Diagram", "GanttChart", "Plan", "Checklist", "BentoGrid"],
   builder: ["ArchitectureDiagram", "CodeDiffPatch", "DocumentDiff", "TradeoffMatrix", "Flow", "Code", "Versus", "Table", "Steps", "BentoGrid"],
   tester: ["FactCheckPanel", "DataTable", "RiskMatrix", "Checklist", "Stats", "BarChart", "Scorecard", "CodeDiffPatch", "Code", "BentoGrid"],
@@ -72,6 +73,10 @@ const LOCAL_CODE_OR_TRANSFORM_ONLY_PATTERN =
 
 const LIVE_FACT_OVERRIDE_PATTERN =
   /\b(?:202[5-9]|terbaru|latest|release|rilis|versi|benchmark|harga|pricing|jadwal|konser|setlist|tracklist|daftar\s+lagu|rundown|lineup|line-up|berita|news|dokumentasi|docs|cve|security\s+advisory)\b/i;
+
+/** The user wants to know what is happening: a digest of current stories, not one subject. */
+export const NEWS_INTENT_PATTERN =
+  /\b(?:berita|news|headline|breaking|kabar\s+(?:terbaru|terkini|hari\s+ini|apa)|isu\s+(?:terkini|terbaru|hangat|panas)|trending|viral|lagi\s+(?:rame|ramai|heboh)|apa\s+yang\s+(?:lagi\s+)?terjadi|ada\s+apa\s+(?:hari\s+ini|dengan|sama|di)|update\s+(?:terbaru|terkini|hari\s+ini)|what(?:'s|\s+is)\s+happening|current\s+events)\b/i;
 
 const EXHAUSTIVE_ENUMERATION_PATTERN =
   /\b(?:setlist|tracklist|daftar\s+lagu|list\s+lagu|urutan\s+lagu|rundown|jadwal\s+lengkap|full\s+list|daftar\s+lengkap|semua\s+lagu|menu\s+lengkap|spesifikasi\s+lengkap|kurikulum|daftar\s+episode)\b/i;
@@ -190,6 +195,7 @@ export function analyzeTurnContext(opts: {
   const quantitativeData = QUANT_PATTERN.test(recentTopicCorpus);
   const architectureFlow = ARCH_FLOW_PATTERN.test(recentTopicCorpus);
   const deepAnalytical = DEEP_ANALYTICAL_PATTERN.test(recentTopicCorpus);
+  const newsIntent = NEWS_INTENT_PATTERN.test(clean);
   const imageQueries = visualEntity ? extractAccurateImageQueries(recentTopicCorpus) : [];
   const isPureGreeting =
     (wordCount <= 5 || clean.length <= 36) &&
@@ -210,6 +216,7 @@ export function analyzeTurnContext(opts: {
     mode = "prose_only";
   } else if (
     opts.workspaceView === "explore" ||
+    newsIntent ||
     spatialTransit ||
     visualEntity ||
     comparison ||
@@ -228,6 +235,11 @@ export function analyzeTurnContext(opts: {
     if (!recommended.includes(name)) recommended.push(name);
   };
 
+  if (newsIntent) {
+    pushRec("NewsFeed");
+    pushRec("KeyFindings");
+    pushRec("Timeline");
+  }
   if (spatialTransit) {
     pushRec("TransitRouteCard");
     pushRec("Map");
@@ -329,6 +341,7 @@ export function analyzeTurnContext(opts: {
     quantitativeData,
     architectureFlow,
     deepAnalytical,
+    newsIntent,
     imageQueries,
     recommendedComponents: recommended,
     mode,
@@ -630,6 +643,26 @@ function selectMicroExample(lookId: string, allowed?: Set<string>): string[] {
   }
 
   if (!has("ComparisonTable", "Steps", "Followups")) return [];
+  if (lookId === "rest") {
+    return [
+      [
+        "**Arabika** itu yang asem-buah dan wangi, **robusta** yang pahit nendang. Bedanya udah dari kebun: arabika tumbuh di 1.000-2.000 mdpl dan matengnya pelan, jadi gulanya lebih kompleks. Robusta tahan panas dan hama gara-gara kafeinnya hampir dua kali lipat, dan itu juga yang bikin dia pahit.",
+        "",
+        "```openui-lang",
+        "root = Stack([ct1])",
+        'ct1 = ComparisonTable("Arabika vs robusta", [{name: "Arabika"}, {name: "Robusta"}], [{criterion: "Kafein", "Arabika": "1,2-1,5%", "Robusta": "2,2-2,7%"}, {criterion: "Rasa", "Arabika": "Asem buah, manis", "Robusta": "Pahit, bodi tebel"}], "Arabika buat seduh manual, robusta buat kopi susu.")',
+        "```",
+        "",
+        "Makanya cara nyeduhnya beda. Arabika paling keluar rasanya kalau lo seduh manual pakai air yang belum mendidih banget.",
+        "",
+        "```openui-lang",
+        "root = Stack([s1, f1])",
+        's1 = Steps([{title: "Giling medium", detail: "15 g biji, sehalus gula pasir"}, {title: "Blooming 30 detik", detail: "Tuang 30 ml air 92°C, diemin dulu"}, {title: "Tuang pelan-pelan", detail: "Sampai 240 ml, kelar di 2:30"}], "Nyeduh V60 buat arabika")',
+        'f1 = Followups(["Rasio kopi-air buat french press", "Kenapa robusta enak buat kopi susu", "Bedanya proses natural sama washed", "Suhu air yang pas tiap metode", "Nyimpen biji biar nggak cepet apek"])',
+        "```",
+      ].join("\n"),
+    ];
+  }
   return [
     [
       "**Arabika** tumbuh di 1.000-2.000 mdpl dan matang pelan, jadi gulanya lebih kompleks. **Robusta** tahan panas dan hama karena kafeinnya hampir dua kali lipat, dan itu juga yang membuatnya pahit.",
@@ -751,7 +784,7 @@ export function buildStaticMomoSystemPrompt(
     preamble: [
       formatRolePersona(roleCfg.lookId, roleCfg.label),
       "",
-      WRITING_CRAFT,
+      buildWritingCraft(roleCfg.lookId),
       "",
       MOMO_CORE_PREAMBLE,
     ].join("\n"),
@@ -884,6 +917,7 @@ export function buildDynamicTurnGuidance(opts: {
     signals.quantitativeData ? "quantitative_data" : "",
     signals.architectureFlow ? "architecture_flow" : "",
     signals.deepAnalytical ? "deep_analytical" : "",
+    signals.newsIntent ? "news_digest" : "",
   ].filter(Boolean);
 
   const freshOptions = signals.recommendedComponents.filter(
@@ -896,8 +930,17 @@ export function buildDynamicTurnGuidance(opts: {
     `${priorUserAnchor} ${opts.latestUserText}`,
   );
 
+  const today = new Intl.DateTimeFormat("id-ID", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "Asia/Jakarta",
+  }).format(new Date());
+
   const lines = [
     `[Turn Context] Role: ${name} (${cfg.lookId}) | Surface: ${activeView} | UI Mode: ${signals.mode}`,
+    `Today: ${today} (WIB). Judge "hari ini", "terbaru" and "sekarang" against this date, not against what you remember; never present an older event as current.`,
     isContinuingTopic
       ? `Session Continuity Spine: Active session entities = [${sessionLedger.entitySpine.join(", ") || priorUserAnchor.slice(0, 120)}] | Prior user arc = (${sessionLedger.priorTurnsTrail}). User's new follow-up is "${opts.latestUserText}". Keep ALL web searches, entity choices, prose, UI blocks, and Followups anchored to this session's subject + new sub-question, DO NOT repeat general overview already given in earlier turns, and DO NOT extrapolate unverified sub-facet locations/dates from Turn 1's main venue without calling \`web_search\`!`
       : `Latest Query Lock: Anchor 100% of your reasoning, searches, UI components, and Followups to "${opts.latestUserText}". Never use generic placeholder examples.`,
@@ -931,6 +974,15 @@ export function buildDynamicTurnGuidance(opts: {
   lines.push(
     `Role Lock: You are ${cfg.label}, and this reply must read like ${cfg.label} wrote it. Open from what ${cfg.label} notices first (${persona.instinct.split(" Asks back")[0]}).${signals.mode === "prose_only" ? "" : ` Build the UI the way ${cfg.label} would: ${persona.ui} Another role would lay this answer out differently; if yours looks like a generic overview, redo it.`}`,
   );
+
+  const registerLock = formatRegisterLock(cfg.lookId, opts.latestUserText, opts.previousUserTexts);
+  if (registerLock) lines.push(registerLock);
+
+  if (signals.newsIntent && signals.mode !== "prose_only") {
+    lines.push(
+      "News Directive: the user wants current events. Run `web_search` first, asking for what is being reported now (e.g. 'berita Indonesia hari ini', 'berita politik terbaru'), never for events you remember; two or three focused queries beat one broad one. Check each result's `publishedDate` against today's date: the feed carries only stories from the last few days, and anything older is background you mention in prose with its date. Open with one or two sentences that answer, then `NewsFeed(title, articles)` built only from those results: every article carries the exact `url` of the result it came from, a headline and a one-to-two sentence summary retold the way you would tell a friend (same register as your prose, never the outlet's own headline or newsroom phrasing), plus `outlet` and `publishedAt` when the result states them. Prefer results that are single articles over homepages and section indexes. Give the feed a plain spoken title. The app attaches each story's photo from the article itself, so pass no image. After the feed, say in prose what ties the stories together and what you make of it. Do not open with `VisualDossier` (a template for one subject or place), and do not emit `RiskMatrix` or any scored panel: news reports carry no probability or impact scores, and inventing them is fabrication.",
+    );
+  }
 
   if (signals.mode === "prose_only") {
     lines.push(

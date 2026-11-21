@@ -48,6 +48,7 @@ export const CAPABILITY_FAMILIES: Record<CapabilityFamilyId, CapabilityFamilySpe
       "RegionalShowcase",
       "ExecutiveSummary",
       "SituationalOverview",
+      "NewsFeed",
       "BentoGrid",
       "Callout",
     ],

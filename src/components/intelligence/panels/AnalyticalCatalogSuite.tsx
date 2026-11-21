@@ -12,8 +12,8 @@
  *   cost_benefit_analysis, option_evaluation, risk_register, decision_record
  */
 
-import { useMemo, useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { useId, useMemo, useState, type KeyboardEvent } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { scaleLinear } from "d3";
 import { MH } from "@/components/motion/MotionPrimitives";
 import {
@@ -30,14 +30,12 @@ import { IntelCardShell, badgeClassForTone, s, n, a } from "../shared/IntelCardS
 import {
   RkBoard,
   RkList,
-  RkMeter,
-  RkRank,
   RkRow,
   RkStep,
   RkSummary,
   sevKey,
-  sevLabel,
 } from "../shared/RowKit";
+import { MeterFill, STAGGER_ITEM, useStagger } from "../shared/StateMotion";
 import { RingPlot } from "../charts/RingPlot";
 import { getColor } from "../charts/shared";
 import {
@@ -192,62 +190,145 @@ export function TradeoffMatrix({ data, state, streaming, sources }: IntelBasePro
   );
 }
 
-/* 3. RiskMatrix (5x5 probability x impact grid + interactive cell click) */
+/* 3. RiskMatrix (Compact 5x5 severity heatmap + linked human-readable risk ledger) */
+function riskTier(score: number): { key: "critical" | "high" | "low"; label: string; badge: string } {
+  if (score >= 15) return { key: "critical", label: "Critical", badge: "red" };
+  if (score >= 8) return { key: "high", label: "Elevated", badge: "amber" };
+  return { key: "low", label: "Watch", badge: "neutral" };
+}
+
 export function RiskMatrix({ data, state, streaming, sources }: IntelBaseProps) {
-  const risks = a<Record<string, unknown>>(data.risks);
-  const [selectedRisk, setSelectedRisk] = useState<Record<string, unknown> | null>(null);
+  const rawRisks = a<Record<string, unknown>>(data.risks);
+  const risks = rawRisks
+    .map((r, i) => {
+      const prob = Math.max(1, Math.min(5, Math.round(n(r.probability, 3))));
+      const imp = Math.max(1, Math.min(5, Math.round(n(r.impact, 3))));
+      const score = prob * imp;
+      return {
+        raw: r,
+        id: s(r.id, `rk-${i}`),
+        title: s(r.title || r.name || r.risk || r.code, `Risk ${i + 1}`),
+        code: s(r.code),
+        mitigation: s(r.mitigation || r.description || r.summary || r.detail || r.action || r.note),
+        prob,
+        imp,
+        score,
+        tier: riskTier(score),
+      };
+    })
+    .sort((a0, b0) => b0.score - a0.score);
+
+  const [activeIdx, setActiveIdx] = useState<number>(0);
+  const safeActive = activeIdx >= 0 && activeIdx < risks.length ? activeIdx : 0;
+  const plateId = useId();
+  const reduce = useReducedMotion();
 
   return (
     <IntelCardShell
       title={s(data.title, "Risk Matrix (Probability × Impact)")}
       badge={`${risks.length} risks`}
-      badgeTone="red"
+      badgeTone={risks.some((r) => r.tier.key === "critical") ? "red" : "amber"}
       icon={<AlertTriangle size={15} />}
       state={state}
       streaming={streaming}
       sources={sources}
       isEmpty={risks.length === 0}
     >
-      <div className="intel-risk-grid-wrap">
-        <div className="intel-risk-grid">
-          {[5, 4, 3, 2, 1].map((prob) =>
-            [1, 2, 3, 4, 5].map((imp) => {
-              const score = prob * imp;
-              const bg =
-                score >= 15
-                  ? "rgba(239, 140, 102, 0.28)"
-                  : score >= 8
-                    ? "rgba(201, 151, 59, 0.2)"
-                    : "var(--gu-tint, rgba(128, 128, 140, 0.08))";
-              const cellRisks = risks.filter((r) => n(r.probability, 3) === prob && n(r.impact, 3) === imp);
-              return (
-                <div key={`${prob}-${imp}`} className="intel-risk-cell" style={{ background: bg }} title={`P:${prob} × I:${imp}`}>
-                  <span className="intel-risk-coord">P{prob}·I{imp}</span>
-                  {cellRisks.map((cr, idx) => (
-                    <motion.button
-                      key={idx}
-                      type="button"
-                      className="intel-risk-dot"
-                      whileHover={MH.chip}
-                      whileTap={MH.tap}
-                      transition={MH.spring}
-                      onClick={() => setSelectedRisk(cr)}
+      <div className="intel-risk-layout">
+        {/* Left: Compact 5x5 Severity Heatmap */}
+        <div className="intel-risk-map">
+          <div className="intel-risk-map__frame">
+            <span className="intel-risk-axis-y" aria-hidden="true">Prob</span>
+            <div className="intel-risk-grid" role="grid" aria-label="Probability by impact matrix">
+              {[5, 4, 3, 2, 1].map((prob) =>
+                [1, 2, 3, 4, 5].map((imp) => {
+                  const score = prob * imp;
+                  const tier = riskTier(score);
+                  const cellMatches = risks
+                    .map((r, idx) => ({ r, idx }))
+                    .filter(({ r }) => r.prob === prob && r.imp === imp);
+                  const hasActive = cellMatches.some(({ idx }) => idx === safeActive);
+                  return (
+                    <div
+                      key={`${prob}-${imp}`}
+                      className={`intel-risk-cell${cellMatches.length ? " has-item" : ""}${hasActive ? " is-active" : ""}`}
+                      data-tier={tier.key}
+                      title={`Prob ${prob} × Impact ${imp} (Score ${score})`}
                     >
-                      {s(cr.code || cr.title).slice(0, 10)}
-                    </motion.button>
-                  ))}
-                </div>
-              );
-            }),
-          )}
+                      {cellMatches.map(({ r, idx }) => (
+                        <motion.button
+                          key={r.id}
+                          type="button"
+                          className={`intel-risk-pip${idx === safeActive ? " is-active" : ""}`}
+                          data-tier={r.tier.key}
+                          whileTap={MH.tap}
+                          transition={MH.spring}
+                          onClick={() => setActiveIdx(idx)}
+                          onMouseEnter={() => setActiveIdx(idx)}
+                          title={`${r.title} (P${r.prob}·I${r.imp})`}
+                          aria-label={`${idx + 1}. ${r.title}`}
+                        >
+                          {idx + 1}
+                        </motion.button>
+                      ))}
+                    </div>
+                  );
+                }),
+              )}
+            </div>
+          </div>
+          <div className="intel-risk-axis-x" aria-hidden="true">
+            <span>Low</span>
+            <span>Impact →</span>
+            <span>High</span>
+          </div>
+        </div>
+
+        {/* Below: compact linked ledger. One row per risk, title left, tier badge top-right. */}
+        <div className="intel-risk-ledger">
+          {risks.map((r, idx) => {
+            const isSel = idx === safeActive;
+            return (
+              <div
+                key={r.id}
+                role="button"
+                tabIndex={0}
+                className={`intel-risk-item${isSel ? " is-active" : ""}${r.mitigation ? "" : " is-bare"}`}
+                data-tier={r.tier.key}
+                onClick={() => setActiveIdx(idx)}
+                onMouseEnter={() => setActiveIdx(idx)}
+                onFocus={() => setActiveIdx(idx)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setActiveIdx(idx);
+                  }
+                }}
+              >
+                {isSel && (
+                  <motion.span
+                    layoutId={`${plateId}-plate`}
+                    className="intel-risk-item__plate"
+                    aria-hidden="true"
+                    transition={reduce ? { duration: 0 } : MH.spring}
+                  />
+                )}
+                <span className="intel-risk-item__num" data-tier={r.tier.key}>
+                  {idx + 1}
+                </span>
+                <strong className="intel-risk-item__title">{r.title}</strong>
+                <span className={`intel-badge intel-badge--${r.tier.badge} intel-risk-item__badge`}>
+                  {r.tier.label} · {r.score}
+                </span>
+                {r.mitigation && <p className="intel-risk-item__desc">{r.mitigation}</p>}
+                <span className="intel-risk-item__meta">
+                  Prob {r.prob} · Impact {r.imp}
+                </span>
+              </div>
+            );
+          })}
         </div>
       </div>
-      {selectedRisk && (
-        <div className="intel-subcard__expand" style={{ marginTop: 10 }}>
-          <strong>{s(selectedRisk.title)}</strong> (P={n(selectedRisk.probability)}, I={n(selectedRisk.impact)}):{" "}
-          {s(selectedRisk.mitigation)}
-        </div>
-      )}
     </IntelCardShell>
   );
 }
@@ -966,19 +1047,32 @@ export function RootCauseAnalysis({ data, state, streaming, sources }: IntelBase
   );
 }
 
-/* 14. ImpactAnalysis — score board with 3-step level meter */
-function impactStep(raw?: string): number {
+/* 14. ImpactAnalysis — grouped severity tiers */
+const IMPACT_TIERS = [
+  { key: "high", label: "High", level: 3 },
+  { key: "medium", label: "Medium", level: 2 },
+  { key: "low", label: "Low", level: 1 },
+] as const;
+
+type ImpactTierKey = (typeof IMPACT_TIERS)[number]["key"];
+
+function impactTierKey(raw: string): ImpactTierKey {
   const k = sevKey(raw);
-  return k === "critical" || k === "high" ? 3 : k === "medium" ? 2 : 1;
+  return k === "critical" || k === "high" ? "high" : k === "medium" ? "medium" : "low";
 }
 
 export function ImpactAnalysis({ data, state, streaming, sources }: IntelBaseProps) {
-  const impacts = a<Record<string, unknown>>(data.impacts);
-  const rows = impacts
-    .map((im, i) => ({ im, i, step: impactStep(s(im.severity, "medium")), level: sevLabel(s(im.severity, "medium")) }))
-    .sort((x, y) => y.step - x.step);
-  const highCount = rows.filter((r) => r.step === 3).length;
-  const top = rows[0];
+  const stagger = useStagger();
+  const impacts = a<Record<string, unknown>>(data.impacts).map((im) => ({
+    domain: s(im.domain || im.component),
+    effect: s(im.effect),
+    tier: impactTierKey(s(im.severity) || "medium"),
+  }));
+  const tiers = IMPACT_TIERS.map((t) => ({
+    ...t,
+    items: impacts.filter((x) => x.tier === t.key),
+  })).filter((t) => t.items.length > 0);
+  const distLabel = tiers.map((t) => `${t.label} ${t.items.length}`).join(", ");
 
   return (
     <IntelCardShell
@@ -989,34 +1083,53 @@ export function ImpactAnalysis({ data, state, streaming, sources }: IntelBasePro
       sources={sources}
       isEmpty={impacts.length === 0}
     >
-      <RkBoard>
-        <RkSummary
-          items={[
-            ...(top ? [{ label: "Highest", value: `${s(top.im.domain || top.im.component)} · ${top.level}` }] : []),
-            ...(highCount > 0 ? [{ label: "High impact", value: <Num value={highCount} />, tone: "warn" }] : []),
-            { label: "Areas", value: <Num value={impacts.length} /> },
-          ]}
-        />
-        <RkList label="Impacted areas">
-          {rows.map(({ im, i, step, level }, idx) => (
-            <RkRow
-              key={i}
-              lead={<RkRank n={idx + 1} top={idx === 0} />}
-              title={s(im.domain || im.component)}
-              sub={s(im.effect)}
-              aside={
-                <RkMeter
-                  value={step}
-                  max={3}
-                  steps={3}
-                  num={level}
-                  tone={step === 3 ? "warn" : step === 2 ? "accent" : "neutral"}
-                />
-              }
-            />
-          ))}
-        </RkList>
-      </RkBoard>
+      <motion.div {...stagger} className="intel-impact">
+        <motion.div className="intel-impact__dist" variants={STAGGER_ITEM}>
+          <div className="intel-impact__bar" role="img" aria-label={`Impact distribution: ${distLabel}`}>
+            {tiers.map((t) => (
+              <div
+                key={t.key}
+                className="intel-impact__seg"
+                data-tier={t.key}
+                style={{ flex: `${t.items.length} 1 0` }}
+              >
+                <MeterFill className="intel-impact__seg-fill" width="100%" />
+              </div>
+            ))}
+          </div>
+          <div className="intel-impact__legend">
+            {tiers.map((t) => (
+              <span key={t.key} className="intel-impact__legend-item">
+                <i className="intel-impact__dot" data-tier={t.key} aria-hidden="true" />
+                {t.label} {t.items.length}
+              </span>
+            ))}
+          </div>
+        </motion.div>
+        {tiers.map((t) => (
+          <motion.div key={t.key} className="intel-impact__tier" data-tier={t.key} variants={STAGGER_ITEM}>
+            <div className="intel-impact__tier-head">
+              <span className="intel-impact__tier-label">{t.label}</span>
+              <span className="intel-impact__tier-count">
+                {t.items.length} {t.items.length === 1 ? "area" : "areas"}
+              </span>
+              <span className="intel-impact__pips" aria-hidden="true">
+                {[0, 1, 2].map((i) => (
+                  <i key={i} className="intel-impact__pip" data-on={i < t.level || undefined} />
+                ))}
+              </span>
+            </div>
+            <div className="intel-impact__rows">
+              {t.items.map((x, i) => (
+                <div key={i} className="intel-impact__row">
+                  <div className="intel-impact__domain">{x.domain}</div>
+                  {x.effect && <div className="intel-impact__effect">{x.effect}</div>}
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        ))}
+      </motion.div>
     </IntelCardShell>
   );
 }
@@ -1065,14 +1178,79 @@ export function CostBenefitAnalysis({ data, state, streaming, sources }: IntelBa
   );
 }
 
-/* 16. OptionEvaluation — score board */
+/* 16. OptionEvaluation — leaderboard with winner hero */
+function optevScore(v: unknown): number | null {
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "string" && v.trim() !== "" && Number.isFinite(Number(v))) return Number(v);
+  return null;
+}
+
+const optevPct = (v: number) => Math.max(0, Math.min(100, v));
+
 export function OptionEvaluation({ data, state, streaming, sources, onAction }: IntelBaseProps) {
-  const options = a<Record<string, unknown>>(data.options);
-  const rows = options
-    .map((op, i) => ({ op, i, score: n(op.score, 70) }))
-    .sort((x, y) => y.score - x.score);
-  const avg = rows.length ? Math.round(rows.reduce((sum, r) => sum + r.score, 0) / rows.length) : 0;
-  const top = rows[0];
+  const reduce = useReducedMotion();
+  const plateId = useId();
+  const [activeIdx, setActiveIdx] = useState(-1);
+
+  const options = a<Record<string, unknown>>(data.options).map((op) => ({
+    op,
+    name: s(op.name || op.title || op.label),
+    summary: s(op.summary || op.description) || undefined,
+    score: optevScore(op.score) ?? optevScore(op.total),
+    recommended: Boolean(op.recommended),
+  }));
+  const scored = options
+    .filter((o) => o.score !== null)
+    .sort((x, y) => (y.score as number) - (x.score as number));
+  const sorted = [...scored, ...options.filter((o) => o.score === null)];
+  const top = sorted[0];
+  const topScore = top?.score ?? null;
+  const topPct = topScore === null ? 0 : optevPct(topScore);
+  const scoredCount = scored.length;
+  const avg = scoredCount ? Math.round(scored.reduce((sum, o) => sum + (o.score as number), 0) / scoredCount) : null;
+  const leadGap = scoredCount >= 2 && topScore !== null ? Math.round(topScore - (scored[1].score as number)) : null;
+
+  const plate = (idx: number) =>
+    activeIdx === idx ? (
+      <motion.span
+        layoutId={`${plateId}-plate`}
+        className="intel-optev__plate"
+        aria-hidden="true"
+        transition={reduce ? { duration: 0 } : MH.spring}
+      />
+    ) : null;
+
+  const interactive = (idx: number, op: Record<string, unknown>) => {
+    const base = {
+      onMouseEnter: () => setActiveIdx(idx),
+      onFocus: () => setActiveIdx(idx),
+    };
+    if (!onAction) return base;
+    const pick = () => onAction({ type: "select", payload: { option: op } });
+    return {
+      ...base,
+      role: "button" as const,
+      tabIndex: 0,
+      onClick: pick,
+      onKeyDown: (e: KeyboardEvent<HTMLElement>) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          pick();
+        }
+      },
+    };
+  };
+
+  const nameRow = (o: (typeof sorted)[number], size: "top" | "row") => (
+    <div className={size === "top" ? "intel-optev__top-name" : "intel-optev__row-name"}>
+      {o.name}
+      {o.recommended && (
+        <span className="intel-rk__chip" data-tone="good">
+          Recommended
+        </span>
+      )}
+    </div>
+  );
 
   return (
     <IntelCardShell
@@ -1083,37 +1261,87 @@ export function OptionEvaluation({ data, state, streaming, sources, onAction }: 
       sources={sources}
       isEmpty={options.length === 0}
     >
-      <RkBoard>
-        <RkSummary
-          items={[
-            ...(top ? [{ label: "Top option", value: `${s(top.op.name)} · ${top.score}/100` }] : []),
-            { label: "Avg score", value: <Num value={avg} unit="/100" /> },
-            { label: "Evaluated", value: <Num value={options.length} /> },
-          ]}
-        />
-        <RkList label="Evaluated options">
-          {rows.map(({ op, i, score }, idx) => (
-            <RkRow
-              key={i}
-              lead={<RkRank n={idx + 1} top={idx === 0} />}
-              title={
-                <>
-                  {s(op.name)}
-                  {Boolean(op.recommended) && " "}
-                  {Boolean(op.recommended) && (
-                    <span className="intel-rk__chip" data-tone="good">
-                      Recommended
-                    </span>
+      <div className="intel-optev" onMouseLeave={() => setActiveIdx(-1)}>
+        {top && (
+          <div
+            className={`intel-optev__top${activeIdx === 0 ? " is-active" : ""}${onAction ? " is-clickable" : ""}`}
+            {...interactive(0, top.op)}
+          >
+            {plate(0)}
+            <div className="intel-optev__top-main">
+              <div className="intel-optev__kicker">Top pick</div>
+              {nameRow(top, "top")}
+              {top.summary && <p className="intel-optev__top-summary">{top.summary}</p>}
+            </div>
+            {topScore !== null ? (
+              <div className="intel-optev__top-score">
+                <Num value={topScore} className="intel-optev__top-num" />
+                <span className="intel-optev__top-of">/100</span>
+              </div>
+            ) : (
+              <div className="intel-optev__top-score">
+                <span className="intel-optev__top-of">Unscored</span>
+              </div>
+            )}
+            {topScore !== null && (
+              <div className="intel-optev__top-bar">
+                <div className="intel-optev__track intel-optev__track--hero">
+                  <MeterFill className="intel-optev__fill intel-optev__fill--accent" width={`${topPct}%`} />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+        {sorted.length > 1 && (
+          <div className="intel-optev__list">
+            {sorted.slice(1).map((o, i) => {
+              const idx = i + 1;
+              const rank = String(i + 2).padStart(2, "0");
+              const gap = o.score !== null && topScore !== null ? Math.round(topScore - o.score) : null;
+              const pct = o.score === null ? 0 : optevPct(o.score);
+              return (
+                <div
+                  key={idx}
+                  className={`intel-optev__row${activeIdx === idx ? " is-active" : ""}${onAction ? " is-clickable" : ""}`}
+                  {...interactive(idx, o.op)}
+                >
+                  {plate(idx)}
+                  <span className="intel-optev__rank">{rank}</span>
+                  <div className="intel-optev__row-main">
+                    {nameRow(o, "row")}
+                    {o.summary && <p className="intel-optev__row-summary">{o.summary}</p>}
+                  </div>
+                  <div className="intel-optev__row-score">
+                    {o.score !== null ? (
+                      <>
+                        <Num value={o.score} />
+                        {gap !== null && gap > 0 && <span className="intel-optev__gap">−{gap}</span>}
+                      </>
+                    ) : (
+                      <span className="intel-optev__gap">Unscored</span>
+                    )}
+                  </div>
+                  {o.score !== null && (
+                    <div className="intel-optev__row-bar">
+                      <div className="intel-optev__track intel-optev__track--row">
+                        <MeterFill className="intel-optev__fill intel-optev__fill--neutral" width={`${pct}%`} />
+                        {topScore !== null && (
+                          <i className="intel-optev__mark" style={{ left: `${topPct}%` }} aria-hidden="true" />
+                        )}
+                      </div>
+                    </div>
                   )}
-                </>
-              }
-              sub={s(op.summary)}
-              aside={<RkMeter value={score} max={100} unit="/100" tone={idx === 0 ? "accent" : "neutral"} />}
-              onClick={() => onAction?.({ type: "select", payload: { option: op } })}
-            />
-          ))}
-        </RkList>
-      </RkBoard>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        <div className="intel-optev__foot">
+          {avg !== null ? `Avg ${avg}/100 · ` : ""}
+          {options.length} options
+          {leadGap !== null ? ` · lead +${leadGap}` : ""}
+        </div>
+      </div>
     </IntelCardShell>
   );
 }

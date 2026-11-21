@@ -297,6 +297,17 @@ const RiskMatrixItemSchema = z
   })
   .passthrough();
 
+const NewsArticleItemSchema = z
+  .object({
+    headline: z.string().describe("Headline in your own words"),
+    url: z.string().describe("Exact `url` of the web_search result this story came from"),
+    summary: z.string().optional().describe("One or two sentences: what happened and why it matters"),
+    outlet: z.string().optional().describe("Publisher name, e.g. Tempo, Kompas"),
+    publishedAt: z.string().optional().describe("The result's publishedDate, or a relative time it states"),
+    tag: z.string().optional().describe("Short topic label, e.g. Politik, Ekonomi"),
+  })
+  .passthrough();
+
 const CostBenefitRowItemSchema = z
   .object({
     label: z.string().describe("Cost or benefit line item"),
@@ -1108,10 +1119,20 @@ export const MOMO_LEAF_COMPONENT_DEFS: MomoOpenUiComponentDef[] = [
     }),
   },
   {
+    name: "NewsFeed",
+    group: "intelligence",
+    description:
+      "News digest for current events: a lead story plus a list, each with photo, outlet, time, headline, summary and source link. One article = one real `web_search` result from this turn: copy its `url` exactly and write the headline and summary yourself. The app attaches the outlet favicon and the article's own photo, so never pass an image. 3-7 articles ordered by importance; an article whose `url` is not in this turn's results loses its link.",
+    props: z.object({
+      title: z.string(),
+      articles: z.array(NewsArticleItemSchema),
+    }),
+  },
+  {
     name: "RiskMatrix",
     group: "intelligence",
     description:
-      "Interactive 5x5 likelihood-by-impact risk heatmap with clickable mitigation entries (`risks: [{code, title, probability: 1-5, impact: 1-5, mitigation}]`).",
+      "Interactive 5x5 likelihood-by-impact risk heatmap with clickable mitigation entries (`risks: [{code, title, probability: 1-5, impact: 1-5, mitigation}]`). Only for an actual risk assessment where you can justify each score; never to summarise news or a list of issues.",
     props: z.object({
       title: z.string(),
       risks: z.array(RiskMatrixItemSchema),
@@ -1266,6 +1287,7 @@ export const MOMO_COMPONENT_GROUPS: ComponentGroup[] = [
       "SituationalOverview",
       "FactCheckPanel",
       "KeyFindings",
+      "NewsFeed",
       "RootCauseAnalysis",
       "SwotAnalysis",
       "TradeoffMatrix",

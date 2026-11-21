@@ -165,6 +165,7 @@ const TITLE_THEN_ARRAY_COMPS = new Set([
   "Scorecard",
   "FactCheckPanel",
   "KeyFindings",
+  "NewsFeed",
   "RiskMatrix",
   "QuoteExtraction",
   "ConceptFlashcards",

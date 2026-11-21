@@ -31,9 +31,10 @@ import {
 } from "../../genUiDesignSpec";
 import { inferLookByKeyword } from "../../localBrain";
 import { replaceProseEmDashes } from "../../genUiStreamParser";
-import { ROLE_PERSONAS } from "../../rolePersonas";
+import { ROLE_PERSONAS, formatRegisterLock, readUserRegister } from "../../rolePersonas";
+import { bindNewsArticlesToSources, normalizeNewsArticles } from "../newsBinding";
 import { LOOK_NAMES } from "../../../data/looks";
-import { expandWebSearchQueries, extractImageAssetStem } from "../../webSearch";
+import { expandWebSearchQueries, extractImageAssetStem, isLikelyArticleUrl } from "../../webSearch";
 import {
   distillVisualSearchQuery,
   extractDistinctiveQueryTokens,
@@ -42,6 +43,7 @@ import {
   isNonPhotographicLogoOrGraphic,
   isGenericPlaceholderQuery,
   isPhotographicImageUrl,
+  isUsableArticleImageUrl,
 } from "../../imageAssetContract";
 import {
   inferContextualIcon,
@@ -1607,3 +1609,115 @@ describe("Role personas and writing craft", () => {
     assert.equal(out, 'salah strategi, misalnya pagi, siang, 10–12 jam, `a—b`\n```\nx — y\n```\n![T — d](u "left")');
   });
 });
+
+describe("Momo register and profanity", () => {
+  it("reads the user's register from the latest message, then from the session", () => {
+    assert.equal(readUserRegister("Bro ada berita apa hari ini dengan negara indonesia yang kacau").level, "casual");
+    assert.equal(readUserRegister("anjir ini kenapa error mulu bangsat").level, "rough");
+    assert.equal(readUserRegister("Mohon jelaskan apakah kebijakan ini berlaku").level, "formal");
+    assert.equal(readUserRegister("lanjut", ["gue bingung nih"]).level, "casual");
+    assert.equal(readUserRegister("Inflasi 2024").level, "neutral");
+  });
+
+  it("lets only Momo swear on its own and makes it casual by default", () => {
+    const momo = buildStaticMomoSystemPrompt("rest", "chat");
+    const chef = buildStaticMomoSystemPrompt("cook", "chat");
+    assert.match(momo, /Profanity is normal vocabulary for you/);
+    assert.doesNotMatch(momo, /never exceeds their level/);
+    assert.match(chef, /never exceeds their level/);
+    assert.doesNotMatch(chef, /Profanity is normal vocabulary/);
+    assert.match(momo, /kalau lo seduh manual/, "Momo's worked example is written in gue/lo");
+    assert.doesNotMatch(chef, /kalau lo seduh manual/);
+
+    assert.match(formatRegisterLock("rest", "apa itu inflasi"), /use your default: casual/);
+    assert.equal(formatRegisterLock("cook", "apa itu inflasi"), "");
+    assert.match(formatRegisterLock("rest", "bro kok gini sih"), /user does not have to go first/);
+    assert.match(formatRegisterLock("rest", "Mohon bantuan Anda"), /no swearing/);
+    assert.match(formatRegisterLock("cook", "anjir gosong"), /up to their level/);
+
+    const turn = buildDynamicTurnGuidance({ lookId: "rest", latestUserText: "bro jelasin inflasi dong" });
+    assert.match(turn, /Register Lock: the user writes casually \("bro", "dong"\)/);
+  });
+});
+
+describe("NewsFeed for current events", () => {
+  const sources = [
+    { title: "A", url: "https://news.detik.com/berita/d-1/banjir-riau?utm_source=x", domain: "news.detik.com", publishedDate: "2026-01-05T02:00:00.000Z", articleImageUrl: "https://akcdn.detik.net.id/visual/2026/01/05/banjir_169.jpeg" },
+    { title: "B", url: "https://www.tempo.co/ekonomi/bi-rate-123/", domain: "tempo.co", snippet: "Baca juga https://www.tempo.co/ekonomi/rupiah-melemah-456 soal rupiah" },
+    { title: "C", url: "https://vertexaisearch.cloud.google.com/grounding-api-redirect/abc", domain: "kompas.com" },
+  ];
+
+  it("routes a news question to NewsFeed and warns against scored panels", () => {
+    const text = "Bro ada berita apa hari ini dengan negara indonesia yang kacau";
+    const signals = analyzeTurnContext({ latestUserText: text, lookId: "rest", workspaceView: "chat" });
+    assert.equal(signals.newsIntent, true);
+    assert.equal(signals.mode, "rich_ui");
+    assert.equal(signals.recommendedComponents[0], "NewsFeed");
+    assert.equal(analyzeTurnContext({ latestUserText: "jelasin cara kerja inflasi", lookId: "rest", workspaceView: "chat" }).newsIntent, false);
+
+    const turn = buildDynamicTurnGuidance({ lookId: "rest", latestUserText: text });
+    assert.match(turn, /News Directive: .*NewsFeed\(title, articles\)/);
+    assert.match(turn, /do not emit `RiskMatrix`/);
+
+    const plan = planContextAwareUi({
+      latestUserText: text, lookId: "money", workspaceView: "chat", previousUserTexts: [],
+      previousAssistantTexts: [], recentComponents: [], availableData: createEmptyDataProfile(),
+    });
+    assert.ok(plan.allowedComponents.includes("NewsFeed"), "every role can emit NewsFeed");
+    assert.match(buildStaticMomoSystemPrompt("money", "chat"), /NewsFeed/);
+  });
+
+  it("parses a NewsFeed block with positional title and articles", () => {
+    const reply = 'Ini yang rame.\n\n```openui-lang\nroot = Stack([n1])\nn1 = NewsFeed("Yang rame hari ini", [{headline: "Banjir Riau meluas", url: "https://news.detik.com/berita/d-1/banjir-riau", summary: "Tiga kabupaten siaga.", outlet: "Detik"}])\n```';
+    const ui = parseMixedStreamToMistlineBlocks(reply, { final: true }).filter((b) => b.kind === "ui");
+    assert.equal(ui.length, 1);
+    assert.equal(ui[0].kind === "ui" && ui[0].name, "NewsFeed");
+    const props = ui[0].kind === "ui" ? ui[0].props : {};
+    assert.equal(props.title, "Yang rame hari ini");
+    assert.equal(normalizeNewsArticles(props.articles)[0].headline, "Banjir Riau meluas");
+  });
+
+  it("gives a matched article the source's link, date and photo, and strips what it cannot trace", () => {
+    const articles = normalizeNewsArticles([
+      { headline: "Banjir", url: "https://news.detik.com/berita/d-1/banjir-riau/", image: "https://evil.example/x.jpg" },
+      { title: "BI Rate", source: "Tempo", url: "https://tempo.co/ngarang" },
+      { headline: "Gempa", outlet: "Kompas.com" },
+      { headline: "Rupiah", url: "https://www.tempo.co/ekonomi/rupiah-melemah-456" },
+      { headline: "Karangan", url: "https://ngarang.example/a", outlet: "Ngarang" },
+      { headline: "" },
+    ]);
+    assert.equal(articles.length, 5);
+    assert.ok(articles.every((a) => !("imageUrl" in a)), "a model-supplied image never survives");
+
+    const bound = bindNewsArticlesToSources(articles, sources);
+    assert.equal(bound[0].url, sources[0].url);
+    assert.equal(bound[0].imageUrl, sources[0].articleImageUrl);
+    assert.equal(bound[0].publishedAt, sources[0].publishedDate);
+    assert.equal(bound[0].outlet, "news.detik.com");
+    assert.equal(bound[1].url, undefined, "a made-up path never borrows another article's link");
+    assert.equal(bound[2].url, sources[2].url, "with no url, a grounding source matches by outlet");
+    assert.equal(bound[3].url, "https://www.tempo.co/ekonomi/rupiah-melemah-456", "a url quoted in a source's text stays");
+    assert.equal(bound[3].imageUrl, undefined);
+    assert.equal(bound[4].url, undefined);
+    assert.equal(bound[4].headline, "Karangan");
+    assert.ok(bindNewsArticlesToSources(articles, undefined).every((a) => !a.url && !a.imageUrl));
+  });
+
+  it("tells article pages from homepages and section indexes", () => {
+    assert.equal(isLikelyArticleUrl("https://nasional.kompas.com/read/2026/11/21/06081701/update-pemilihan-wapres"), true);
+    assert.equal(isLikelyArticleUrl("https://www.antaranews.com/berita/5868971/politik-kemarin"), true);
+    assert.equal(isLikelyArticleUrl("https://bsinews.id/anak-yatim-tanam-pohon-bandung"), true);
+    assert.equal(isLikelyArticleUrl("https://www.tempo.co/politik"), false);
+    assert.equal(isLikelyArticleUrl("https://rmol.id/rubrik/politik"), false);
+    assert.equal(isLikelyArticleUrl("https://kompas.com"), false);
+  });
+
+  it("accepts a real article photo and refuses logos and default share banners", () => {
+    assert.equal(isUsableArticleImageUrl("https://akcdn.detik.net.id/visual/2026/01/05/banjir-parah-di-riau_169.jpeg?w=650"), true);
+    assert.equal(isUsableArticleImageUrl("https://cdn.site.com/assets/logo.png"), false);
+    assert.equal(isUsableArticleImageUrl("https://site.com/og-image.jpg"), false);
+    assert.equal(isUsableArticleImageUrl("https://site.com/images/default.jpg"), false);
+    assert.equal(isUsableArticleImageUrl("https://site.com/berita/banjir.html"), false);
+  });
+});
+

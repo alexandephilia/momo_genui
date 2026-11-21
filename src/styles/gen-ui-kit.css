@@ -2740,8 +2740,8 @@ html.theme-transitioning :is(
 }
 
 .momo-sugg-title {
-  font-size: 15px;
-  line-height: 18px;
+  font-size: 20px;
+  line-height: 24px;
   flex-shrink: 0;
   color: var(--ink);
   display: -webkit-box;
@@ -3945,8 +3945,8 @@ html.theme-transitioning :is(
   font-family: var(--font);
   font-weight: 600;
   letter-spacing: -0.015em;
-  font-size: 15.5px;
-  line-height: 19px;
+  font-size: 18px;
+  line-height: 22px;
 }
 
 .momo-explore-shell[data-role-mode="technical"] .momo-circle-mark {
@@ -6408,8 +6408,8 @@ html.theme-transitioning :is(
   font-family: var(--font);
   font-weight: 600;
   letter-spacing: -0.015em;
-  font-size: 15.5px;
-  line-height: 19px;
+  font-size: 18px;
+  line-height: 22px;
 }
 
 .momo-explore-shell[data-role-mode="technical"] .momo-circle-mark {

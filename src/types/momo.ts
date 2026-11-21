@@ -50,6 +50,8 @@ export interface SourceItem {
   snippet?: string;
   domain?: string;
   imageUrl?: string;
+  /** The article's own lead photo (og:image), kept apart from the verified photo pool. NewsFeed only. */
+  articleImageUrl?: string;
   publishedDate?: string;
 }
 

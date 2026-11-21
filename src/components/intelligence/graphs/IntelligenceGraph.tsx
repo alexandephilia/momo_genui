@@ -645,6 +645,11 @@ export default function IntelligenceGraph({
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const rfInstanceRef = useRef<ReactFlowInstance | null>(null);
+  /* Once the user pans/zooms, auto-fitting must stop — yanking the viewport back
+     under their cursor is the "keeps refocusing" bug reported in chat. */
+  const userInteractedRef = useRef(false);
+  const lastFitWidthRef = useRef(0);
+  const fitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     setActiveLayout(graphData.layout || "layered");
@@ -672,21 +677,32 @@ export default function IntelligenceGraph({
   useEffect(() => {
     if (!layoutReady || resolvedVariant !== "default") return;
     const raf = requestAnimationFrame(() => {
+      lastFitWidthRef.current = canvasRef.current?.clientWidth ?? 0;
       rfInstanceRef.current?.fitView(FIT_VIEW_OPTIONS);
     });
     return () => cancelAnimationFrame(raf);
   }, [layoutReady, nodes.length, contentHeight, resolvedVariant]);
 
+  /* Refit only on a meaningful width change — mount animations, stream-in reflow
+     and sub-pixel jitter all fire RO constantly; each fire used to animate a
+     fresh fitView (the perpetual zoom in/out loop). */
   useEffect(() => {
     const el = canvasRef.current;
     if (!el || typeof ResizeObserver === "undefined" || resolvedVariant !== "default") return;
     const observer = new ResizeObserver(() => {
-      requestAnimationFrame(() => {
+      const w = el.clientWidth;
+      if (userInteractedRef.current || Math.abs(w - lastFitWidthRef.current) < 8) return;
+      lastFitWidthRef.current = w;
+      if (fitTimerRef.current) clearTimeout(fitTimerRef.current);
+      fitTimerRef.current = setTimeout(() => {
         rfInstanceRef.current?.fitView(FIT_VIEW_OPTIONS);
-      });
+      }, 140);
     });
     observer.observe(el);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      if (fitTimerRef.current) clearTimeout(fitTimerRef.current);
+    };
   }, [resolvedVariant]);
 
   const orderedNodes = useMemo(
@@ -783,6 +799,12 @@ export default function IntelligenceGraph({
     document.addEventListener("fullscreenchange", handler);
     return () => document.removeEventListener("fullscreenchange", handler);
   }, []);
+
+  /* Fullscreen is a deliberate viewport change — allow exactly one refit for it
+     even if the user had panned/zoomed before toggling. */
+  useEffect(() => {
+    userInteractedRef.current = false;
+  }, [fullscreen]);
 
   const fittedHeight = Math.max(200, Math.min(480, Math.round(contentHeight + 36)));
   const pixelHeight = typeof height === "number" ? Math.max(180, height) : fittedHeight;
@@ -903,7 +925,11 @@ export default function IntelligenceGraph({
                 onPaneClick={() => setSelectedNode(null)}
                 onInit={(inst) => {
                   rfInstanceRef.current = inst;
-                  requestAnimationFrame(() => inst.fitView(FIT_VIEW_OPTIONS));
+                }}
+                onMoveStart={(event) => {
+                  /* event is null for programmatic moves (fitView/zoomTo) — only a
+                     real gesture counts as user interaction. */
+                  if (event) userInteractedRef.current = true;
                 }}
                 nodeTypes={mergedNodeTypes}
                 fitView

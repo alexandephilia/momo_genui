@@ -157,13 +157,15 @@ export default function MetricGroup({ data, state, variant }: IntelBaseProps) {
                 </span>
                 <MetricDeltaBadge m={m} stats={stats} />
               </div>
-              <div className="dv-metric-group__tile-foot">
-                {hasChart ? (
-                  <MetricTrend values={spark ?? []} interactive={false} marks={false} name={m.label} className="dv-metric-group__tile-chart" />
-                ) : m.note ? (
-                  <span className="dv-metric-group__tile-note">{m.note}</span>
-                ) : null}
-              </div>
+              {hasChart || m.note ? (
+                <div className="dv-metric-group__tile-foot">
+                  {hasChart ? (
+                    <MetricTrend values={spark ?? []} interactive={false} marks={false} name={m.label} className="dv-metric-group__tile-chart" />
+                  ) : (
+                    <span className="dv-metric-group__tile-note">{m.note}</span>
+                  )}
+                </div>
+              ) : null}
             </motion.div>
           ))}
         </div>

@@ -59,6 +59,11 @@ const contracts: Record<string, ContentContract> = {
     fields: ["items", "tasks"],
     accepts: row => text(row) || named(row, "text", "title", "label", "task"),
   },
+  NewsFeed: {
+    requirement: "articles: real stories from this turn's web_search results, each with a headline and that result's exact url",
+    fields: ["articles", "items", "stories"],
+    accepts: row => named(row, "headline", "title", "name"),
+  },
   Followups: {
     requirement: "items: concrete nonblank next questions",
     fields: ["items"],

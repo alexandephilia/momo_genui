@@ -198,6 +198,8 @@ export function useMomoStage(refs: StageSlotRefs, state: StageStateInput) {
   });
 
   const ptrRef = useRef({ x: 0, y: 0, hover: false, seen: false, poke: 0 });
+  const ptrTrailRef = useRef<Array<{ x: number; y: number; t: number }>>([]);
+  const dizzyCooldownRef = useRef(0);
   const modeRef = useRef<{ mode: ExpressionId | null; until: number; hold: boolean }>({
     mode: null,
     until: 0,
@@ -309,6 +311,60 @@ export function useMomoStage(refs: StageSlotRefs, state: StageStateInput) {
       ptrRef.current.seen = true;
       const dist = Math.hypot(e.clientX - cx, e.clientY - cy);
       ptrRef.current.hover = dist < r.width * 0.42;
+
+      // Dizzy trigger: frantic circular scribbling or rapid back-and-forth
+      // shaking in a ~700ms window makes Momo see spirals.
+      const trail = ptrTrailRef.current;
+      const last = trail[trail.length - 1];
+      if (!last || last.x !== e.clientX || last.y !== e.clientY) {
+        trail.push({ x: e.clientX, y: e.clientY, t: e.timeStamp });
+      }
+      while (trail.length > 2 && e.timeStamp - trail[0].t > 700) trail.shift();
+      if (
+        trail.length >= 8 &&
+        e.timeStamp > dizzyCooldownRef.current &&
+        mascotRef.current.dead <= 0.35
+      ) {
+        let mcx = 0;
+        let mcy = 0;
+        for (const p of trail) {
+          mcx += p.x;
+          mcy += p.y;
+        }
+        mcx /= trail.length;
+        mcy /= trail.length;
+        let path = 0;
+        let rot = 0;
+        let flips = 0;
+        for (let i = 1; i < trail.length; i++) {
+          const p = trail[i];
+          const q = trail[i - 1];
+          const sx = p.x - q.x;
+          const sy = p.y - q.y;
+          path += Math.hypot(sx, sy);
+          if (i >= 2) {
+            const px = q.x - trail[i - 2].x;
+            const py = q.y - trail[i - 2].y;
+            const dot = sx * px + sy * py;
+            if (dot < -0.3 * Math.hypot(sx, sy) * Math.hypot(px, py)) flips += 1;
+          }
+          const ax = q.x - mcx;
+          const ay = q.y - mcy;
+          const bx = p.x - mcx;
+          const by = p.y - mcy;
+          if (ax * ax + ay * ay > 25 && bx * bx + by * by > 25) {
+            let d = Math.atan2(by, bx) - Math.atan2(ay, ax);
+            if (d > Math.PI) d -= 2 * Math.PI;
+            if (d < -Math.PI) d += 2 * Math.PI;
+            rot += d;
+          }
+        }
+        if ((Math.abs(rot) > Math.PI * 2.8 && path > 700) || (flips >= 4 && path > 600)) {
+          triggerExpression("dizzy", 2600);
+          dizzyCooldownRef.current = e.timeStamp + 4500;
+          trail.length = 0;
+        }
+      }
     };
 
     const onDown = (e: PointerEvent) => {

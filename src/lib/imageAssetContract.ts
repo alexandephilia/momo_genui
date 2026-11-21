@@ -212,6 +212,32 @@ export function isPhotographicImageUrl(raw: string): boolean {
   }
 }
 
+/**
+ * Whether a page's og:image is fit to illustrate that page's own story in a news list.
+ * Looser than the photo-slot check (a flood or a police line is the story here), but it
+ * still refuses logos, favicons, default share banners and generated OG cards.
+ */
+export function isUsableArticleImageUrl(rawUrl: string): boolean {
+  const clean = (rawUrl || "").replace(/&amp;/g, "&").trim();
+  if (!isPhotographicImageUrl(clean)) return false;
+  const unwrapped = unwrapCanonicalImageUrl(clean);
+  if (NON_PHOTO_SYNTHETIC_HOST_RE.test(clean) || NON_PHOTO_SYNTHETIC_HOST_RE.test(unwrapped)) return false;
+  try {
+    const path = decodeURIComponent(new URL(unwrapped).pathname).toLowerCase();
+    if (/\/(?:favicon|icons?|logos?|brand|branding|avatars?|badges?|placeholders?)\//i.test(path)) return false;
+    if (
+      /(?:^|[\/_-])(?:og[-_]?image|og|opengraph|open[-_]?graph|social[-_]?(?:card|share|image)|share[-_]?image|default[-_]?og|meta[-_]?image|site[-_]?og|twitter[-_]?card|default|no[-_]?image)(?:\.(?:png|jpe?g|webp|avif)|$)/i.test(
+        path,
+      )
+    ) {
+      return false;
+    }
+    return !NON_PHOTO_URL_TOKEN_RE.test(path);
+  } catch {
+    return false;
+  }
+}
+
 export function buildProxiedImageUrl(httpsUrl: string): string {
   return `/api/image?proxy=1&url=${encodeURIComponent(httpsUrl.trim())}`;
 }

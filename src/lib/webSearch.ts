@@ -154,12 +154,34 @@ async function searchTinyFish(
   }
 }
 
+/** How far back a news search looks. Wide enough to survive a quiet weekend. */
+const NEWS_WINDOW_MS = 3 * 24 * 60 * 60 * 1000;
+/** Past this age a dated result is background, not news. */
+const NEWS_STALE_MS = 21 * 24 * 60 * 60 * 1000;
+
+/**
+ * An article page rather than a homepage or a section index: a dated or numbered path,
+ * or a long hyphenated slug. Used to rank news results, never to drop them.
+ */
+export function isLikelyArticleUrl(rawUrl: string): boolean {
+  try {
+    const segments = new URL(rawUrl).pathname.split("/").filter(Boolean);
+    if (segments.length === 0) return false;
+    const path = segments.join("/");
+    if (/\d{4,}/.test(path)) return true;
+    return segments.some((seg) => seg.split("-").filter(Boolean).length >= 4);
+  } catch {
+    return false;
+  }
+}
+
 async function searchExa(
   query: string,
   numResults: number,
   apiKey: string,
   signal?: AbortSignal,
-  timeoutMs = 6800
+  timeoutMs = 6800,
+  news = false,
 ): Promise<WebSearchResultItem[]> {
   if (!apiKey) return [];
   try {
@@ -174,6 +196,12 @@ async function searchExa(
         query,
         numResults,
         type: "auto",
+        ...(news
+          ? {
+              category: "news",
+              startPublishedDate: new Date(Date.now() - NEWS_WINDOW_MS).toISOString(),
+            }
+          : {}),
         contents: {
           text: {
             maxCharacters: 3400,
@@ -464,6 +492,8 @@ export async function runWebSearch(opts: {
   expand?: boolean;
   isRetry?: boolean;
   sessionAnchor?: string;
+  /** Current-events turn: ask for recent news articles and rank them above index pages. */
+  news?: boolean;
   signal?: AbortSignal;
 }): Promise<WebSearchResponse> {
   const query = opts.query.trim();
@@ -471,7 +501,8 @@ export async function runWebSearch(opts: {
     typeof opts.numResults === "number" && Number.isFinite(opts.numResults)
       ? opts.numResults
       : 6;
-  const limit = Math.max(1, Math.min(10, Math.round(rawLimit)));
+  // A digest needs more stories than a fact lookup needs sources.
+  const limit = Math.max(opts.news ? 8 : 1, Math.min(10, Math.round(rawLimit)));
   if (!query) {
     return {
       query: "",
@@ -533,7 +564,7 @@ export async function runWebSearch(opts: {
   } else if (mode === "exa") {
     const batches = await Promise.all(
       queriesToRun.map((q) =>
-        exaKey ? searchExa(q, perQueryLimit, exaKey, opts.signal, 6500) : [],
+        exaKey ? searchExa(q, perQueryLimit, exaKey, opts.signal, 6500, opts.news) : [],
       ),
     );
     exaRes = batches.flat();
@@ -551,13 +582,17 @@ export async function runWebSearch(opts: {
       wantExa
         ? Promise.all(
             queriesToRun.map((q) =>
-              searchExa(q, perQueryLimit, exaKey, opts.signal, 6500),
+              searchExa(q, perQueryLimit, exaKey, opts.signal, 6500, opts.news),
             ),
           )
         : Promise.resolve([] as WebSearchResultItem[][]),
     ]);
     tfRes = tfBatches.flat();
     exaRes = exaBatches.flat();
+    // A quiet news window should not leave the turn without Exa's full-text results.
+    if (opts.news && wantExa && exaRes.length === 0) {
+      exaRes = await searchExa(query, perQueryLimit, exaKey, opts.signal, 6500);
+    }
 
     const needFirecrawl =
       Boolean(firecrawlKey) &&
@@ -592,13 +627,30 @@ export async function runWebSearch(opts: {
       }
     }
   } else {
-    // Interleave TinyFish (exact live web precision) + Exa (deep neural text highlights) + Firecrawl
+    // Interleave TinyFish (exact live web precision) + Exa (deep neural text highlights) + Firecrawl.
+    // On a news turn Exa's dated articles lead, since general search returns section indexes.
+    const lanes = opts.news ? [exaRes, tfRes, fcRes] : [tfRes, exaRes, fcRes];
     const maxLen = Math.max(tfRes.length, exaRes.length, fcRes.length);
     for (let idx = 0; idx < maxLen; idx++) {
-      if (tfRes[idx]) orderedPool.push(tfRes[idx]);
-      if (exaRes[idx]) orderedPool.push(exaRes[idx]);
-      if (fcRes[idx]) orderedPool.push(fcRes[idx]);
+      for (const lane of lanes) {
+        if (lane[idx]) orderedPool.push(lane[idx]);
+      }
     }
+  }
+
+  if (opts.news) {
+    // Fresh dated articles, then undated articles, then index pages, then stale stories.
+    const now = Date.now();
+    const rank = (r: WebSearchResultItem): number => {
+      const published = r.publishedDate ? Date.parse(r.publishedDate) : NaN;
+      if (Number.isFinite(published) && now - published > NEWS_STALE_MS) return 3;
+      if (!isLikelyArticleUrl(r.url)) return 2;
+      return Number.isFinite(published) && now - published <= NEWS_WINDOW_MS ? 0 : 1;
+    };
+    orderedPool = orderedPool
+      .map((r, idx) => ({ r, idx, rank: rank(r) }))
+      .sort((x, y) => x.rank - y.rank || x.idx - y.idx)
+      .map((x) => x.r);
   }
 
   for (const item of orderedPool) {

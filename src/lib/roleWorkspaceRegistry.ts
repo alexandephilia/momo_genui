@@ -50,8 +50,8 @@ const ROLE_OVERRIDES: Record<
 > = {
   rest: {
     identity: {
-      expertise: "Generalist assistant across reasoning, planning, and technical synthesis.",
-      communicationStyle: "Santai, cerdas, dan luwes kayak temen diskusi sehari-hari (pakai 'gue/lo' kalau user santai, atau conversational akrab tanpa kaku kayak buku teks). To-the-point, jujur, dan adaptif.",
+      expertise: "Generalist assistant across reasoning, planning, current events, and technical synthesis.",
+      communicationStyle: "Casual dari awal kayak temen deket: gue/lo, slang, ceplas-ceplos, dan bebas ngumpat kalau pas tanpa nunggu user duluan. Ngikutin ruangan: user kasar ikut kasar, user formal jadi rapi dan jernih, user lagi susah jadi lembut. Nggak pernah menggurui, nggak pernah kaku kayak buku teks atau pembaca berita.",
     },
     capability: {
       tools: ["web_search", "search_images", "sync_workspace_board"],
@@ -67,16 +67,16 @@ const ROLE_OVERRIDES: Record<
     exploreHeadline: "Mau eksplorasi topik apa hari ini?",
     exploreSubline: "Tanyakan apa saja. Ide utamanya disusun visual ke kanan dan otomatis bisa ditata ulang di Pinboard.",
     exploreSuggestions: [
-      { kicker: "Riset", label: "Bandingkan Next.js vs Astro", prompt: "Bandingkan Next.js dan Astro untuk proyek konten interaktif." },
-      { kicker: "Rencana", label: "Rencana belajar 4 minggu", prompt: "Susun rencana belajar TypeScript dan React secara bertahap." },
-      { kicker: "Eksplorasi", label: "Weekend santai di Bandung", prompt: "Ide rute santai 2 hari di Bandung yang penuh kuliner lokal." },
-      { kicker: "Analisis", label: "Audit kebiasaan kerja harian", prompt: "Bantu evaluasi jadwal kerja harian supaya lebih fokus." },
+      { kicker: "Info", label: "Berita penting hari ini", prompt: "Apa berita paling penting hari ini? Rangkum headline utamanya plus konteks singkat kenapa itu penting." },
+      { kicker: "Cuaca", label: "Cuaca hari ini & besok", prompt: "Gimana cuaca hari ini dan besok? Kasih rangkuman suhu, peluang hujan, dan saran kegiatan outdoor." },
+      { kicker: "Trending", label: "Lagi rame dibahas", prompt: "Apa topik yang lagi rame dibahas orang minggu ini? Jelasin konteksnya singkat." },
+      { kicker: "Ide", label: "Satu hal produktif hari ini", prompt: "Saranin satu hal kecil tapi berdampak yang bisa gue kerjain hari ini." },
     ],
     chatHeroCue: "atau mulai cepat dari sini ~",
     chatHeroSuggestions: [
-      { tag: "01", label: "Bandingkan dua pendekatan", prompt: "Bandingkan Next.js App Router vs Astro untuk web interaktif." },
-      { tag: "02", label: "Rute 2 hari Bandung", prompt: "Ide rute santai 2 hari di Bandung yang penuh kuliner lokal." },
-      { tag: "03", label: "Rapikan jadwal fokus", prompt: "Bantu evaluasi jadwal kerja harian supaya lebih fokus." },
+      { tag: "01", label: "Berita penting hari ini", prompt: "Apa berita paling penting hari ini? Rangkum headline utamanya plus konteks singkat." },
+      { tag: "02", label: "Cuaca hari ini", prompt: "Gimana cuaca hari ini? Kasih rangkuman suhu, peluang hujan, dan saran kegiatan." },
+      { tag: "03", label: "Lagi rame dibahas", prompt: "Apa yang lagi rame dibahas orang minggu ini? Jelasin konteks singkatnya." },
     ],
     boardLabel: "Pinboard",
     boardDefaultColumns: [

@@ -22,6 +22,8 @@ interface IntelCardShellProps {
   variant?: string;
   icon?: ReactNode;
   headerRight?: ReactNode;
+  /** Extra content rendered in the spine rail between the header and sources. */
+  spineExtra?: ReactNode;
   state: IntelRenderState;
   isEmpty?: boolean;
   emptyMessage?: string;
@@ -40,6 +42,7 @@ export function IntelCardShell({
   variant,
   icon,
   headerRight,
+  spineExtra,
   state,
   isEmpty = false,
   emptyMessage = "No data available",
@@ -94,7 +97,7 @@ export function IntelCardShell({
   const hasValidSources = Boolean(
     sources && sources.some((src) => /^https?:\/\//i.test(src.url)),
   );
-  const hasSpine = Boolean(title || badge || headerRight || hasValidSources);
+  const hasSpine = Boolean(title || badge || headerRight || spineExtra || hasValidSources);
 
   return (
     <motion.section
@@ -136,6 +139,8 @@ export function IntelCardShell({
               </div>
             </header>
           )}
+
+          {spineExtra && <div className="intel-shell__spine-extra">{spineExtra}</div>}
 
           {hasValidSources && sources && (() => {
             const validSources = sources.filter((src) => /^https?:\/\//i.test(src.url));

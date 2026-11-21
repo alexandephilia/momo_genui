@@ -13,7 +13,7 @@
  */
 
 import { useId, useState } from "react";
-import { motion } from "motion/react";
+import { motion, useReducedMotion } from "motion/react";
 import { MH } from "@/components/motion/MotionPrimitives";
 import {
   ShieldAlert,
@@ -31,20 +31,19 @@ import IntelligenceGraph from "../graphs/IntelligenceGraph";
 import { InteractiveMapBlock, type InteractiveMapPin } from "@/components/cards/InteractiveMapBlock";
 import { IntelCardShell, badgeClassForTone, toneColor, s, n, a } from "../shared/IntelCardShell";
 import { Num } from "../charts/kit";
+import { MeterFill, STAGGER_ITEM, useStagger } from "../shared/StateMotion";
 import {
   RkBoard,
   RkDelta,
   RkKV,
   RkList,
-  RkMark,
   RkMeta,
-  RkMeter,
-  RkRank,
   RkRow,
   RkSeverity,
   RkSummary,
   RkTime,
   sevFactItems,
+  sevLabel,
   sevRank,
   sevTally,
 } from "../shared/RowKit";
@@ -213,42 +212,79 @@ export function AnomalyDetectionPanel({ data, state, streaming, sources }: Intel
   );
 }
 
-/* 6. ThreatAssessment — severity ledger */
+/* 6. ThreatAssessment — severity ledger with depth */
+const THREAT_DOT_TIER: Record<string, "high" | "medium" | "low"> = {
+  critical: "high",
+  high: "high",
+  medium: "medium",
+  low: "low",
+  info: "low",
+};
+
 export function ThreatAssessment({ data, state, streaming, sources }: IntelBaseProps) {
+  const stagger = useStagger();
   const vectors = a<Record<string, unknown>>(data.vectors);
   const rows = [...vectors].sort((x, y) => sevRank(s(x.severity)) - sevRank(s(y.severity)));
-  const overall = s(data.overallLevel, "Elevated");
+  const overall = s(data.overallLevel);
   const overallKey = sevRank(overall);
   const overallTone = overallKey === 0 ? "bad" : overallKey <= 2 ? "warn" : "good";
+  const tally = sevTally(vectors.map((v) => s(v.severity)));
+  const legendKeys = (["critical", "high", "medium", "low", "info"] as const).filter((k) => tally[k] > 0);
+  const summary = s(data.summary);
 
   return (
-    <IntelCardShell title={s(data.title, "Threat Assessment")} badge={overall} badgeTone={badgeClassForTone(overall === "Critical" ? "critical" : "warning")} icon={<ShieldAlert size={15} />} state={state} streaming={streaming} sources={sources} isEmpty={vectors.length === 0 && !s(data.summary)}>
-      <RkBoard>
-        {s(data.summary) && <p className="intel-rk__note">{s(data.summary)}</p>}
-        <RkSummary
-          items={[
-            ...sevFactItems(sevTally(vectors.map((v) => s(v.severity)))),
-            ...(vectors.length ? [{ label: "Vectors", value: <Num value={vectors.length} /> }] : []),
-            ...(s(data.overallLevel) ? [{ label: "Overall", value: overall, tone: overallTone }] : []),
-          ]}
-        />
-        <RkList label="Threat vectors">
-          {rows.map((v, i) => (
-            <RkRow
-              key={i}
-              lead={<RkSeverity level={s(v.severity)} />}
-              title={s(v.name)}
-              sub={s(v.mitigation)}
-            >
-              {s(v.likelihood) && (
-                <RkMeta>
-                  <RkKV k="Likelihood" v={s(v.likelihood)} />
-                </RkMeta>
-              )}
-            </RkRow>
-          ))}
-        </RkList>
-      </RkBoard>
+    <IntelCardShell
+      title={s(data.title, "Threat Assessment")}
+      badge={overall || `${vectors.length} vectors`}
+      badgeTone={overall ? badgeClassForTone(overallKey === 0 ? "critical" : "warning") : "neutral"}
+      icon={<ShieldAlert size={15} />}
+      state={state}
+      streaming={streaming}
+      sources={sources}
+      isEmpty={vectors.length === 0 && !summary}
+    >
+      <motion.div {...stagger} className="intel-threat">
+        {(summary || legendKeys.length > 0 || overall) && (
+          <motion.div className="intel-threat__head" variants={STAGGER_ITEM}>
+            {summary && <p className="intel-threat__summary">{summary}</p>}
+            {(legendKeys.length > 0 || overall) && (
+              <div className="intel-threat__legend">
+                {legendKeys.length > 0 && (
+                  <div className="intel-threat__legend-items">
+                    {legendKeys.map((k) => (
+                      <span key={k} className="intel-threat__legend-item">
+                        <i className="intel-threat__dot" data-tier={THREAT_DOT_TIER[k]} aria-hidden="true" />
+                        {sevLabel(k)} {tally[k]}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {overall && (
+                  <span className="intel-rk__chip" data-tone={overallTone}>
+                    Overall · {overall}
+                  </span>
+                )}
+              </div>
+            )}
+          </motion.div>
+        )}
+        {rows.length > 0 && (
+          <div className="intel-threat__list">
+            {rows.map((v, i) => (
+              <motion.div key={i} className="intel-threat__row" variants={STAGGER_ITEM}>
+                <div className="intel-threat__main">
+                  <div className="intel-threat__name">{s(v.name)}</div>
+                  {s(v.mitigation) && <div className="intel-threat__mit">{s(v.mitigation)}</div>}
+                </div>
+                <div className="intel-threat__sev">
+                  <RkSeverity level={s(v.severity)} />
+                  {s(v.likelihood) && <span className="intel-threat__like">Likelihood · {s(v.likelihood)}</span>}
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        )}
+      </motion.div>
     </IntelCardShell>
   );
 }
@@ -523,8 +559,13 @@ export function IndicatorPanel({ data, state, streaming, sources }: IntelBasePro
   );
 }
 
-/* 13. PatternDetection — score board */
+/* 13. PatternDetection — confidence-ring ledger */
+const PAT_RING_R = 19.5;
+const PAT_RING_C = 2 * Math.PI * PAT_RING_R;
+
 export function PatternDetection({ data, state, streaming, sources }: IntelBaseProps) {
+  const stagger = useStagger();
+  const reduce = useReducedMotion();
   const patterns = a<Record<string, unknown>>(data.patterns);
   const rows = [...patterns]
     .map((p, i) => ({ p, i, conf: n(p.confidence, 82) }))
@@ -534,37 +575,62 @@ export function PatternDetection({ data, state, streaming, sources }: IntelBaseP
 
   return (
     <IntelCardShell title={s(data.title, "Detected Patterns")} badge={`${patterns.length} patterns`} badgeTone="purple" state={state} streaming={streaming} sources={sources} isEmpty={patterns.length === 0}>
-      <RkBoard>
-        <RkSummary
-          items={[
-            ...(top ? [{ label: "Top pattern", value: `${s(top.p.name)} · ${top.conf}%` }] : []),
-            { label: "Avg confidence", value: <Num value={avg} unit="%" /> },
-            { label: "Patterns", value: <Num value={patterns.length} /> },
-          ]}
-        />
-        <RkList label="Detected patterns">
-          {rows.map(({ p, i, conf }, idx) => (
-            <RkRow
-              key={i}
-              lead={<RkRank n={idx + 1} top={idx === 0} />}
-              title={s(p.name)}
-              sub={s(p.description)}
-              aside={<RkMeter value={conf} unit="%" tone={idx === 0 ? "accent" : "neutral"} />}
-            >
-              <RkMeta>
-                <RkKV k="Occurrences" v={<Num value={n(p.occurrences, 1)} />} />
-                {s(p.signature) && <RkKV k="Signature" v={s(p.signature)} />}
-              </RkMeta>
-            </RkRow>
-          ))}
-        </RkList>
-      </RkBoard>
+      <motion.div {...stagger} className="intel-pat">
+        <motion.div className="intel-pat__head" variants={STAGGER_ITEM}>
+          {patterns.length} patterns · avg confidence {avg}%
+          {top ? ` · top ${s(top.p.name)} ${top.conf}%` : ""}
+        </motion.div>
+        <div className="intel-pat__list">
+          {rows.map(({ p, i, conf }, idx) => {
+            const pct = Math.max(0, Math.min(100, conf));
+            const meta = [
+              p.occurrences !== undefined && p.occurrences !== null ? `${n(p.occurrences)}× occurrences` : "",
+              s(p.signature) ? `signature ${s(p.signature)}` : "",
+            ].filter(Boolean);
+            return (
+              <motion.div key={i} className="intel-pat__row" variants={STAGGER_ITEM}>
+                <div className="intel-pat__main">
+                  <div className="intel-pat__name">
+                    <span className="intel-pat__rank">{String(idx + 1).padStart(2, "0")}</span>
+                    <span className="intel-pat__title">{s(p.name)}</span>
+                  </div>
+                  {s(p.description) && <p className="intel-pat__desc">{s(p.description)}</p>}
+                  {meta.length > 0 && <div className="intel-pat__meta">{meta.join(" · ")}</div>}
+                </div>
+                <div className="intel-pat__ring">
+                  <svg viewBox="0 0 44 44" width={44} height={44} aria-hidden="true">
+                    <circle cx={22} cy={22} r={PAT_RING_R} fill="none" stroke="var(--gu-child-bg)" strokeWidth={5} />
+                    <motion.circle
+                      cx={22}
+                      cy={22}
+                      r={PAT_RING_R}
+                      fill="none"
+                      stroke={idx === 0 ? "var(--gu-accent, #ef8c66)" : "#9d9da6"}
+                      strokeWidth={5}
+                      strokeLinecap="round"
+                      strokeDasharray={PAT_RING_C}
+                      transform="rotate(-90 22 22)"
+                      initial={reduce ? false : { strokeDashoffset: PAT_RING_C }}
+                      animate={{ strokeDashoffset: PAT_RING_C * (1 - pct / 100) }}
+                      transition={reduce ? { duration: 0 } : { duration: 0.8, ease: "easeOut" }}
+                    />
+                  </svg>
+                  <span className="intel-pat__ring-num">
+                    <Num value={conf} />
+                  </span>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      </motion.div>
     </IntelCardShell>
   );
 }
 
-/* 14. ChangeDetection — change log */
+/* 14. ChangeDetection — delta ledger */
 export function ChangeDetection({ data, state, streaming, sources }: IntelBaseProps) {
+  const stagger = useStagger();
   const changes = a<Record<string, unknown>>(data.changes);
   const isDown = (dir: string) => /down|decrease|neg|fall|drop|turun/i.test(dir);
   const up = changes.filter((c) => !isDown(s(c.direction, "up"))).length;
@@ -572,46 +638,50 @@ export function ChangeDetection({ data, state, streaming, sources }: IntelBasePr
 
   return (
     <IntelCardShell title={s(data.title, "Change Detection")} badge={`${changes.length} deltas`} state={state} streaming={streaming} sources={sources} isEmpty={changes.length === 0}>
-      <RkBoard>
-        <RkSummary
-          items={[
-            { label: "Changes", value: <Num value={changes.length} /> },
-            ...(up > 0 ? [{ label: "Up", value: <Num value={up} />, tone: "good" as const }] : []),
-            ...(down > 0 ? [{ label: "Down", value: <Num value={down} />, tone: "bad" as const }] : []),
-          ]}
-        />
-        <RkList label="Detected changes">
+      <motion.div {...stagger} className="intel-chg">
+        <motion.div className="intel-chg__head" variants={STAGGER_ITEM}>
+          {changes.length} changes · ↑ {up} · ↓ {down}
+        </motion.div>
+        <div className="intel-chg__list">
           {changes.map((c, i) => {
             const dir = s(c.direction, "up");
             const downward = isDown(dir);
+            const before = s(c.before);
+            const after = s(c.after);
+            const delta = s(c.delta);
+            const detail = s(c.detail) || s(c.note) || s(c.area);
             return (
-              <RkRow
-                key={i}
-                lead={
-                  <RkMark tone={downward ? "bad" : "good"}>
-                    {downward ? <ArrowDownRight size={11} /> : <ArrowUpRight size={11} />}
-                  </RkMark>
-                }
-                title={s(c.subject)}
-                aside={
-                  <RkDelta
-                    before={s(c.before)}
-                    after={s(c.after)}
-                    change={s(c.delta)}
-                    trend={downward ? "down" : "up"}
-                  />
-                }
-              />
+              <motion.div key={i} className="intel-chg__row" variants={STAGGER_ITEM}>
+                <span className={`intel-chg__mark${downward ? " is-down" : ""}`} aria-hidden="true">
+                  {downward ? <ArrowDownRight size={12} /> : <ArrowUpRight size={12} />}
+                </span>
+                <div className="intel-chg__main">
+                  <div className="intel-chg__subject">{s(c.subject)}</div>
+                  {detail && <div className="intel-chg__sub">{detail}</div>}
+                </div>
+                {(before || after || delta) && (
+                  <div className="intel-chg__delta">
+                    {before || after ? (
+                      <RkDelta before={before} after={after} change={delta || undefined} trend={downward ? "down" : "up"} />
+                    ) : (
+                      <span className="intel-rk__delta-chip" data-trend={downward ? "down" : "up"}>
+                        {delta}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </motion.div>
             );
           })}
-        </RkList>
-      </RkBoard>
+        </div>
+      </motion.div>
     </IntelCardShell>
   );
 }
 
-/* 15. CorrelationTimeline — change log */
+/* 15. CorrelationTimeline — vertical rail timeline */
 export function CorrelationTimeline({ data, state, streaming, sources }: IntelBaseProps) {
+  const stagger = useStagger();
   const clusters = a<Record<string, unknown>>(data.clusters);
   const times = clusters.map((cl) => s(cl.window)).filter(Boolean);
   const span =
@@ -629,42 +699,62 @@ export function CorrelationTimeline({ data, state, streaming, sources }: IntelBa
 
   return (
     <IntelCardShell title={s(data.title, "Correlation Timeline")} badge={`${clusters.length} windows`} state={state} streaming={streaming} sources={sources} isEmpty={clusters.length === 0}>
-      <RkBoard>
-        <RkSummary
-          items={[
-            { label: "Windows", value: <Num value={clusters.length} /> },
-            { label: "Avg correlation", value: <Num value={avgCorr} unit="%" /> },
-            ...(span ? [{ label: "Span", value: span }] : []),
-          ]}
-        />
-        <RkList label="Correlation clusters">
+      <motion.div {...stagger} className="intel-corr">
+        <motion.div className="intel-corr__head" variants={STAGGER_ITEM}>
+          {clusters.length} windows · avg corr {avgCorr}%{span ? ` · span ${span}` : ""}
+        </motion.div>
+        <div className="intel-corr__list">
           {clusters.map((cl, i) => {
-            const events = a<string>(cl.events);
+            const events = a<string>(cl.events).map((ev) => s(ev)).filter(Boolean);
             const score = n(cl.correlationScore, 88);
             const title =
               s(cl.label || cl.name) ||
               (events.length ? `${events.length} correlated event${events.length > 1 ? "s" : ""}` : s(cl.window));
+            const winText = s(cl.window);
+            const winParts = (() => {
+              const parts = winText.split(/\s*[–—−]\s*/).filter(Boolean);
+              return parts.length > 1 ? [parts[0], parts.slice(1).join(" – ")] : [winText];
+            })();
             return (
-              <RkRow
-                key={i}
-                lead={<RkTime value={s(cl.window)} />}
-                title={title}
-                aside={<RkMeter value={score} unit="%" tone="accent" />}
-              >
-                {events.length > 0 && (
-                  <div className="intel-rk__children">
-                    {events.map((ev, idx) => (
-                      <div key={idx} className="intel-rk__child">
-                        <span className="intel-rk__child-name">{ev}</span>
-                      </div>
-                    ))}
+              <motion.div key={i} className="intel-corr__item" variants={STAGGER_ITEM}>
+                <div className="intel-corr__win">
+                  {winParts.map((part, pi) => (
+                    <span key={pi} className="intel-corr__win-part">
+                      {part}
+                      {pi < winParts.length - 1 ? " –" : ""}
+                    </span>
+                  ))}
+                </div>
+                <div className="intel-corr__rail" aria-hidden="true">
+                  <span className="intel-corr__dot" />
+                  {i < clusters.length - 1 && <i className="intel-corr__line" />}
+                </div>
+                <div className="intel-corr__cell">
+                  <div className="intel-corr__title-row">
+                    <span className="intel-corr__title">{title}</span>
+                    <span className="intel-corr__pct">{score}%</span>
                   </div>
-                )}
-              </RkRow>
+                  <div className="intel-corr__track">
+                    <MeterFill className="intel-corr__fill" width={`${Math.max(0, Math.min(100, score))}%`} />
+                  </div>
+                  {events.length > 0 && (
+                    <div className="intel-corr__events">
+                      {events.map((ev, idx) => (
+                        <div key={idx} className="intel-corr__event">
+                          <span className="intel-corr__event-mark" aria-hidden="true">
+                            –
+                          </span>
+                          <span className="intel-corr__event-text">{ev}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </motion.div>
             );
           })}
-        </RkList>
-      </RkBoard>
+        </div>
+      </motion.div>
     </IntelCardShell>
   );
 }

@@ -424,6 +424,7 @@ const UI_COMPONENT_LABELS_ID: Record<string, string> = {
   HeroImage: "Visual utama",
   ImageComparison: "Komparasi visual",
   KeyFindings: "Temuan kunci",
+  NewsFeed: "Berita terkini",
   InsightCard: "Wawasan kunci",
   ExecutiveSummary: "Ringkasan",
   ExecutiveBrief: "Ringkasan",

@@ -13,8 +13,9 @@
  */
 
 import { useId, useState } from "react";
-import { motion } from "motion/react";
+import { motion, useReducedMotion } from "motion/react";
 import { MH } from "@/components/motion/MotionPrimitives";
+import { buildProxiedImageUrl } from "@/lib/imageAssetContract";
 import {
   CheckCircle2,
   XCircle,
@@ -46,7 +47,6 @@ import {
   RkRow,
   RkStack,
   RkSummary,
-  RkTime,
 } from "../shared/RowKit";
 
 /* 1. EvidenceMatrix */
@@ -739,61 +739,223 @@ function extractNewsHost(rawUrl: string): string {
   }
 }
 
+const NEWS_DAY = new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short", timeZone: "Asia/Jakarta" });
+const NEWS_YEAR = new Intl.DateTimeFormat("id-ID", { year: "numeric", timeZone: "Asia/Jakarta" });
+
+function newsTime(raw: string): string {
+  const t = raw.trim();
+  if (!/\d{4}/.test(t) && !t.includes("T")) return raw;
+  const ms = Date.parse(t);
+  if (Number.isNaN(ms)) return raw;
+  const d = new Date(ms);
+  const base = NEWS_DAY.format(d);
+  return NEWS_YEAR.format(d) === NEWS_YEAR.format(new Date()) ? base : `${base} ${NEWS_YEAR.format(d)}`;
+}
+
+interface NewsArticle {
+  headline: string;
+  summary?: string;
+  url?: string;
+  outlet?: string;
+  host?: string;
+  time?: string;
+  imageUrl?: string;
+  tag?: string;
+}
+
+function NewsFavicon({ host }: { host: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return null;
+  return (
+    <img
+      className="intel-news__favicon"
+      src={`https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=32`}
+      alt=""
+      width={14}
+      height={14}
+      referrerPolicy="no-referrer"
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
+function NewsImage({ url, className, onDead }: { url: string; className: string; onDead: () => void }) {
+  const [mode, setMode] = useState<"raw" | "proxy" | "dead">("raw");
+  const [loaded, setLoaded] = useState(false);
+  if (mode === "dead") return null;
+  return (
+    <motion.img
+      className={className}
+      src={mode === "raw" ? url : buildProxiedImageUrl(url)}
+      alt=""
+      loading="lazy"
+      referrerPolicy="no-referrer"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: loaded ? 1 : 0 }}
+      transition={MH.spring}
+      onLoad={() => setLoaded(true)}
+      onError={() => {
+        if (mode === "raw") setMode("proxy");
+        else {
+          setMode("dead");
+          onDead();
+        }
+      }}
+    />
+  );
+}
+
+function NewsMeta({ art }: { art: NewsArticle }) {
+  return (
+    <div className="intel-news__meta">
+      {art.host && <NewsFavicon host={art.host} />}
+      {art.outlet && <span className="intel-news__outlet">{art.outlet}</span>}
+      {art.outlet && art.time && <span className="intel-news__sep" aria-hidden="true">·</span>}
+      {art.time && <span className="intel-news__time">{newsTime(art.time)}</span>}
+      {art.tag && <span className="intel-badge intel-news__tag">{art.tag}</span>}
+      {art.url && <ArrowUpRight size={11} className="intel-news__ext" aria-hidden="true" />}
+    </div>
+  );
+}
+
+function NewsRow({
+  art,
+  lead,
+  active,
+  plateId,
+  reduce,
+  onActivate,
+}: {
+  art: NewsArticle;
+  lead?: boolean;
+  active: boolean;
+  plateId: string;
+  reduce: boolean | null;
+  onActivate: () => void;
+}) {
+  const [imgDead, setImgDead] = useState(false);
+  const hasImg = Boolean(art.imageUrl) && !imgDead;
+  const cls = `${lead ? "intel-news__lead" : "intel-news__item"}${hasImg ? " has-media" : ""}${active ? " is-active" : ""}`;
+  const plate = active ? (
+    <motion.span
+      layoutId={`${plateId}-plate`}
+      className="intel-news__plate"
+      aria-hidden="true"
+      transition={reduce ? { duration: 0 } : MH.spring}
+    />
+  ) : null;
+  const shared = {
+    className: cls,
+    onMouseEnter: onActivate,
+    onFocus: onActivate,
+  };
+
+  const body = lead ? (
+    <>
+      {plate}
+      {hasImg && art.imageUrl && (
+        <div className="intel-news__lead-media">
+          <NewsImage key={art.imageUrl} url={art.imageUrl} className="intel-news__lead-img" onDead={() => setImgDead(true)} />
+        </div>
+      )}
+      <div className="intel-news__text">
+        <NewsMeta art={art} />
+        <div className="intel-news__headline">{art.headline}</div>
+        {art.summary && <p className="intel-news__summary">{art.summary}</p>}
+      </div>
+    </>
+  ) : (
+    <>
+      {plate}
+      <div className="intel-news__text">
+        <NewsMeta art={art} />
+        <div className="intel-news__headline">{art.headline}</div>
+        {art.summary && <p className="intel-news__summary">{art.summary}</p>}
+      </div>
+      {hasImg && art.imageUrl && (
+        <div className="intel-news__thumb">
+          <NewsImage key={art.imageUrl} url={art.imageUrl} className="intel-news__thumb-img" onDead={() => setImgDead(true)} />
+        </div>
+      )}
+    </>
+  );
+
+  return art.url ? (
+    <a {...shared} href={art.url} target="_blank" rel="noopener noreferrer" aria-label={art.headline}>
+      {body}
+    </a>
+  ) : (
+    <div {...shared} role="article">
+      {body}
+    </div>
+  );
+}
+
 export function NewsFeed({ data, state, streaming, sources }: IntelBaseProps) {
-  const articles = a<Record<string, unknown>>(data.articles);
-  const dates = articles.map((art) => s(art.publishedAt || art.date || art.time)).filter(Boolean);
-  const span = dates.length >= 2 ? `${dates[0]} – ${dates[dates.length - 1]}` : "";
+  const articles = a<Record<string, unknown>>(data.articles)
+    .map((art): NewsArticle | null => {
+      const headline = s(art.headline || art.title);
+      if (!headline) return null;
+      const rawUrl = s(art.url);
+      const hasUrl = /^https?:\/\//i.test(rawUrl);
+      const host = hasUrl ? extractNewsHost(rawUrl) : "";
+      const rawImg = s(art.imageUrl || art.image);
+      return {
+        headline,
+        summary: s(art.summary || art.description || art.excerpt) || undefined,
+        url: hasUrl ? rawUrl : undefined,
+        outlet: s(art.outlet || art.source) || host || undefined,
+        host: host || undefined,
+        time: s(art.publishedAt || art.date || art.time) || undefined,
+        imageUrl: /^https:\/\//i.test(rawImg) ? rawImg : undefined,
+        tag: s(art.tag) || undefined,
+      };
+    })
+    .filter((x): x is NewsArticle => x !== null);
+
+  const [activeIdx, setActiveIdx] = useState(-1);
+  const plateId = useId();
+  const reduce = useReducedMotion();
 
   return (
     <IntelCardShell
-      title={s(data.title, "News Coverage")}
-      badge={`${articles.length} stories`}
+      title={s(data.title, "Berita terkini")}
+      badge={`${articles.length} berita`}
       icon={<Newspaper size={15} />}
       state={state}
       streaming={streaming}
       sources={sources}
       isEmpty={articles.length === 0}
     >
-      <RkBoard>
-        <RkSummary
-          items={[
-            { label: "Stories", value: <Num value={articles.length} /> },
-            ...(span ? [{ label: "Span", value: span }] : []),
-          ]}
-        />
-        <RkList label="News stories">
-          {articles.map((art, i) => {
-            const rawUrl = s(art.url);
-            const hasUrl = /^https?:\/\//i.test(rawUrl);
-            const host = hasUrl ? extractNewsHost(rawUrl) : "";
-            const outlet = s(art.outlet || art.source) || host;
-            const publishedAt = s(art.publishedAt || art.date || art.time);
-            const summary = s(art.summary || art.description || art.excerpt);
-            return (
-              <RkRow
-                key={i}
-                lead={publishedAt ? <RkTime value={publishedAt} /> : undefined}
-                title={s(art.headline || art.title)}
-                sub={summary}
-                href={hasUrl ? rawUrl : undefined}
-                target={hasUrl ? "_blank" : undefined}
-                rel={hasUrl ? "noopener noreferrer" : undefined}
-                ariaLabel={s(art.headline || art.title)}
-                aside={
-                  outlet ? (
-                    <span className="intel-rk__aside-src">
-                      {outlet}
-                      {hasUrl && <ArrowUpRight size={11} aria-hidden="true" />}
-                    </span>
-                  ) : hasUrl ? (
-                    <ArrowUpRight size={13} aria-hidden="true" />
-                  ) : undefined
-                }
-              />
-            );
-          })}
-        </RkList>
-      </RkBoard>
+      <div className="intel-news" onMouseLeave={() => setActiveIdx(-1)}>
+        {articles.length > 0 && (
+          <NewsRow
+            art={articles[0]}
+            lead
+            active={activeIdx === 0}
+            plateId={plateId}
+            reduce={reduce}
+            onActivate={() => setActiveIdx(0)}
+          />
+        )}
+        {articles.length > 1 && (
+          <div className="intel-news__list">
+            {articles.slice(1).map((art, i) => {
+              const idx = i + 1;
+              return (
+                <NewsRow
+                  key={idx}
+                  art={art}
+                  active={activeIdx === idx}
+                  plateId={plateId}
+                  reduce={reduce}
+                  onActivate={() => setActiveIdx(idx)}
+                />
+              );
+            })}
+          </div>
+        )}
+      </div>
     </IntelCardShell>
   );
 }

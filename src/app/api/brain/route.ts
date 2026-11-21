@@ -6,6 +6,7 @@ import {
   buildSessionMemoryLedger,
   extractRecentOpenUiComponents,
   GEMINI_FUNCTION_DECLARATIONS,
+  NEWS_INTENT_PATTERN,
   shouldEnforceFreshWebVerification,
   shouldFetchVisualImages,
   shouldMandateAutoWebSearch,
@@ -37,6 +38,7 @@ import {
   type ReasoningEffort,
 } from "@/lib/modelCatalog";
 import { getRoleWorkspaceConfig } from "@/lib/roleWorkspaceRegistry";
+import { isUsableArticleImageUrl } from "@/lib/imageAssetContract";
 import {
   extractImageAssetStem,
   normalizeImageDedupKey,
@@ -1608,6 +1610,9 @@ export async function POST(request: Request) {
                     numResults: body.isRetry ? Math.max(numResults, 7) : numResults,
                     provider,
                     expand: true,
+                    news:
+                      NEWS_INTENT_PATTERN.test(latestUserText) ||
+                      NEWS_INTENT_PATTERN.test(rawQuery),
                     isRetry: Boolean(body.isRetry),
                     sessionAnchor: sessionLedger.sessionSearchAnchor || undefined,
                     signal: request.signal,
@@ -1617,8 +1622,13 @@ export async function POST(request: Request) {
                     if (!turnSources.some((existing) => existing.url === s.url)) {
                       // A page's og:image is often a logo or banner. Keep it out of the
                       // turn's image candidates; only `search_images` results are photo-checked.
-                      const { imageUrl: _pageImage, ...textSource } = s;
-                      turnSources.push(textSource);
+                      // It may still illustrate its own story in a NewsFeed row.
+                      const { imageUrl: pageImage, ...textSource } = s;
+                      turnSources.push(
+                        pageImage && isUsableArticleImageUrl(pageImage)
+                          ? { ...textSource, articleImageUrl: pageImage }
+                          : textSource,
+                      );
                     }
                   }
                   if (turnSources.length > 0) {
@@ -1704,7 +1714,7 @@ export async function POST(request: Request) {
                         query: searchOut.query,
                         providersUsed: searchOut.providersUsed,
                         results: compactResults,
-                        note: "Cite verified `url` links with inline (1), (2). These are text sources, not photos: for images call `search_images` (or set `imageQuery`); never pass a webpage `url` as an image.",
+                        note: "Cite verified `url` links with inline (1), (2). These are text sources, not photos: for images call `search_images` (or set `imageQuery`); never pass a webpage `url` as an image. For a news digest, put each story's exact `url` and `publishedDate` into `NewsFeed` articles; the app adds the article photo.",
                       },
                     },
                   };

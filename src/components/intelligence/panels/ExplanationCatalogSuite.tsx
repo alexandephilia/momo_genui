@@ -20,18 +20,17 @@ import {
   FileSearch,
   ChevronDown,
   ChevronUp,
+  Wrench,
 } from "lucide-react";
 import type { IntelBaseProps } from "@/lib/intelligence/types";
 import { IntelCardShell, badgeClassForTone, toneColor, s, n, a } from "../shared/IntelCardShell";
-import { CheckTick, MeterFill, tweenPaint } from "../shared/StateMotion";
+import { CheckTick, MeterFill, METER, STAGGER_ITEM, tweenPaint } from "../shared/StateMotion";
 import { Num } from "../charts/kit";
 import {
   RkBoard,
   RkKV,
   RkList,
   RkMeta,
-  RkMeter,
-  RkRank,
   RkRow,
   RkSeverity,
   RkSummary,
@@ -299,21 +298,41 @@ export function UncertaintyMap({ data, state, streaming, sources }: IntelBasePro
           ]}
         />
         <RkList label="Uncertainty areas">
-          {rows.map(({ item, i, level }, idx) => (
-            <RkRow
-              key={s(item.id, `um-${i}`)}
-              lead={<RkRank n={idx + 1} top={idx === 0} />}
-              title={s(item.dimension || item.topic)}
-              sub={s(item.reason)}
-              aside={<RkMeter value={level} unit="%" tone={level > 65 ? "bad" : level > 35 ? "warn" : "good"} />}
-            >
-              {s(item.mitigation) && (
-                <RkMeta>
-                  <RkKV k="Resolve via" v={s(item.mitigation)} />
-                </RkMeta>
-              )}
-            </RkRow>
-          ))}
+          {rows.map(({ item, i, level }, idx) => {
+            const tone = level > 65 ? "bad" : level > 35 ? "warn" : "good";
+            return (
+              <motion.div
+                key={s(item.id, `um-${i}`)}
+                className="intel-um"
+                data-tone={tone}
+                variants={STAGGER_ITEM}
+              >
+                <span className="intel-um__rank">{String(idx + 1).padStart(2, "0")}</span>
+                <div className="intel-um__main">
+                  <div className="intel-um__head">
+                    <strong className="intel-um__dim">{s(item.dimension || item.topic)}</strong>
+                    <span className="intel-um__pct">{level}%</span>
+                  </div>
+                  {s(item.reason) && <p className="intel-um__reason">{s(item.reason)}</p>}
+                  <div className="intel-um__track" role="img" aria-label={`Uncertainty ${level}%`}>
+                    <span className="intel-um__track-fill" />
+                    <motion.span
+                      className="intel-um__marker"
+                      initial={{ left: "0%" }}
+                      animate={{ left: `${level}%` }}
+                      transition={METER}
+                    />
+                  </div>
+                  {s(item.mitigation) && (
+                    <div className="intel-um__fix">
+                      <Wrench size={11} aria-hidden="true" />
+                      <span>{s(item.mitigation)}</span>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            );
+          })}
         </RkList>
       </RkBoard>
     </IntelCardShell>
@@ -381,9 +400,11 @@ export function AssumptionPanel({ data, state, streaming, sources }: IntelBasePr
   );
 }
 
-/* 6. LimitationPanel — severity ledger */
+/* 6. LimitationPanel — severity-accented boundary cards */
 export function LimitationPanel({ data, state, streaming, sources }: IntelBaseProps) {
-  const limitations = a(data.limitations);
+  const limitations = a(data.limitations)
+    .slice()
+    .sort((x, y) => sevRank(s(x.severity)) - sevRank(s(y.severity)));
   const withWorkaround = limitations.filter((lim) => Boolean(s(lim.workaround))).length;
 
   return (
@@ -406,21 +427,33 @@ export function LimitationPanel({ data, state, streaming, sources }: IntelBasePr
           ]}
         />
         <RkList label="Limitations">
-          {limitations.map((lim, i) => (
-            <RkRow
-              key={s(lim.id, `lim-${i}`)}
-              lead={<RkSeverity level={s(lim.severity)} />}
-              title={s(lim.area || lim.title)}
-              sub={s(lim.description)}
-              aside={s(lim.scope) ? <span className="intel-rk__chip">{s(lim.scope)}</span> : undefined}
-            >
-              {s(lim.workaround) && (
-                <RkMeta>
-                  <RkKV k="Mitigation" v={s(lim.workaround)} />
-                </RkMeta>
-              )}
-            </RkRow>
-          ))}
+          {limitations.map((lim, i) => {
+            const sev = s(lim.severity, "info").toLowerCase();
+            return (
+              <motion.div
+                key={s(lim.id, `lim-${i}`)}
+                className="intel-lim"
+                data-sev={sev}
+                variants={STAGGER_ITEM}
+              >
+                <div className="intel-lim__head">
+                  <span className={`intel-badge intel-badge--${badgeClassForTone(sev)} intel-lim__sev`}>
+                    {sev}
+                  </span>
+                  <strong className="intel-lim__area">{s(lim.area || lim.title)}</strong>
+                  {s(lim.scope) && <span className="intel-rk__chip intel-lim__scope">{s(lim.scope)}</span>}
+                </div>
+                {s(lim.description) && <p className="intel-lim__desc">{s(lim.description)}</p>}
+                {s(lim.workaround) && (
+                  <div className="intel-lim__fix">
+                    <Wrench size={11} aria-hidden="true" />
+                    <span className="intel-lim__fix-label">Workaround</span>
+                    <span className="intel-lim__fix-text">{s(lim.workaround)}</span>
+                  </div>
+                )}
+              </motion.div>
+            );
+          })}
         </RkList>
       </RkBoard>
     </IntelCardShell>

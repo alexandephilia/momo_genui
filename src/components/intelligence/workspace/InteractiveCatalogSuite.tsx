@@ -11,7 +11,7 @@
  *   query_builder, investigation_controls
  */
 
-import { useEffect, useId, useMemo, useState } from "react";
+import { Fragment, useEffect, useId, useMemo, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { MH } from "@/components/motion/MotionPrimitives";
 import {
@@ -794,7 +794,9 @@ export function MapLayerControls({ data, state, streaming, sources, onAction }: 
   );
 }
 
-/* 15. QueryBuilder */
+/* 15. QueryBuilder — rule rows + live compiled preview */
+const QB_OPS = ["=", "!=", "contains", ">", "<"];
+
 export function QueryBuilder({ data, state, streaming, sources, onAction }: IntelBaseProps) {
   const fields = a<string>(data.fields);
   const [rules, setRules] = useState<Array<{ field: string; op: string; value: string }>>(
@@ -802,57 +804,136 @@ export function QueryBuilder({ data, state, streaming, sources, onAction }: Inte
   );
 
   const compiled = rules.map((r) => `${r.field} ${r.op} "${r.value}"`).join(" AND ");
+  const update = (i: number, patch: Partial<{ field: string; op: string; value: string }>) =>
+    setRules((prev) => prev.map((x, idx) => (idx === i ? { ...x, ...patch } : x)));
 
   return (
-    <IntelCardShell title={s(data.title, "Structured Query Builder")} icon={<Code2 size={15} />} state={state} streaming={streaming} sources={sources} isEmpty={fields.length === 0 && rules.length === 0}>
-      <div className="intel-list-grid">
-        {rules.map((r, i) => (
-          <div key={i} className="intel-query-rule">
-            <select
-              value={r.field}
-              onChange={(e) => setRules((prev) => prev.map((x, idx) => (idx === i ? { ...x, field: e.target.value } : x)))}
-            >
-              {fields.map((f) => <option key={f} value={f}>{f}</option>)}
-            </select>
-            <select
-              value={r.op}
-              onChange={(e) => setRules((prev) => prev.map((x, idx) => (idx === i ? { ...x, op: e.target.value } : x)))}
-            >
-              {["=", "!=", "contains", ">", "<"].map((op) => <option key={op} value={op}>{op}</option>)}
-            </select>
-            <input
-              value={r.value}
-              onChange={(e) => setRules((prev) => prev.map((x, idx) => (idx === i ? { ...x, value: e.target.value } : x)))}
-            />
-            <motion.button type="button" className="intel-pill" whileHover={MH.chip} whileTap={MH.tap} transition={MH.spring} onClick={() => setRules((prev) => prev.filter((_, idx) => idx !== i))}>
-              <Trash2 size={12} />
-            </motion.button>
+    <IntelCardShell
+      title={s(data.title, "Structured Query Builder")}
+      badge={`${rules.length} rule${rules.length === 1 ? "" : "s"}`}
+      icon={<Code2 size={15} />}
+      state={state}
+      streaming={streaming}
+      sources={sources}
+      isEmpty={fields.length === 0 && rules.length === 0}
+      spineExtra={
+        fields.length > 0 ? (
+          <div className="intel-ws__meta">
+            <span className="intel-ws__meta-label">Fields</span>
+            {fields.map((f) => (
+              <div key={f} className="intel-ws__meta-row">
+                <span>{f}</span>
+              </div>
+            ))}
           </div>
-        ))}
+        ) : undefined
+      }
+    >
+      <div className="intel-qb">
+        {rules.length > 0 && (
+          <div className="intel-qb__rules">
+            <div className="intel-qb__head" aria-hidden="true">
+              <span>#</span>
+              <span>Field</span>
+              <span>Op</span>
+              <span>Value</span>
+              <span>·</span>
+            </div>
+            {rules.map((r, i) => (
+              <Fragment key={i}>
+                {i > 0 && (
+                  <div className="intel-qb__join" aria-hidden="true">
+                    <span className="intel-qb__join-chip">AND</span>
+                  </div>
+                )}
+                <div className="intel-qb__rule">
+                  <span className="intel-qb__idx">{String(i + 1).padStart(2, "0")}</span>
+                  <select
+                    value={r.field}
+                    aria-label={`Rule ${i + 1} field`}
+                    onChange={(e) => update(i, { field: e.target.value })}
+                  >
+                    {fields.map((f) => (
+                      <option key={f} value={f}>{f}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={r.op}
+                    aria-label={`Rule ${i + 1} operator`}
+                    onChange={(e) => update(i, { op: e.target.value })}
+                  >
+                    {QB_OPS.map((op) => (
+                      <option key={op} value={op}>{op}</option>
+                    ))}
+                  </select>
+                  <input
+                    value={r.value}
+                    placeholder="value"
+                    aria-label={`Rule ${i + 1} value`}
+                    onChange={(e) => update(i, { value: e.target.value })}
+                  />
+                  <motion.button
+                    type="button"
+                    className="intel-qb__del"
+                    aria-label={`Remove rule ${i + 1}`}
+                    whileHover={MH.chip}
+                    whileTap={MH.tap}
+                    transition={MH.spring}
+                    onClick={() => setRules((prev) => prev.filter((_, idx) => idx !== i))}
+                  >
+                    <Trash2 size={12} />
+                  </motion.button>
+                </div>
+              </Fragment>
+            ))}
+          </div>
+        )}
+
+        <div className="intel-qb__actions">
+          <motion.button
+            type="button"
+            className="intel-qb__add"
+            whileHover={MH.chip}
+            whileTap={MH.tap}
+            transition={MH.spring}
+            onClick={() => setRules((prev) => [...prev, { field: fields[0] || "status", op: "=", value: "active" }])}
+          >
+            <Plus size={12} /> Add rule
+          </motion.button>
+          <motion.button
+            type="button"
+            className="intel-qb__run"
+            disabled={rules.length === 0}
+            whileHover={MH.chip}
+            whileTap={MH.tap}
+            transition={MH.spring}
+            onClick={() => onAction?.({ type: "send", payload: { query: compiled, rules } })}
+          >
+            <Play size={12} /> Run query
+          </motion.button>
+        </div>
+
+        <div className="intel-qb__preview">
+          <div className="intel-qb__preview-head">
+            <span className="intel-qb__preview-label">Compiled query</span>
+            <span className="intel-qb__preview-live"><i />live</span>
+          </div>
+          <code className="intel-qb__code">
+            {rules.length === 0 ? (
+              <span className="intel-qb__code-empty">{"// no rules — add one above"}</span>
+            ) : (
+              rules.map((r, i) => (
+                <span key={i} className="intel-qb__code-line">
+                  {i > 0 && <span className="intel-qb__code-and">AND</span>}
+                  <span className="intel-qb__code-field">{r.field}</span>
+                  <span className="intel-qb__code-op"> {r.op} </span>
+                  <span className="intel-qb__code-val">"{r.value}"</span>
+                </span>
+              ))
+            )}
+          </code>
+        </div>
       </div>
-      <div className="intel-subcard__row" style={{ marginTop: 10 }}>
-        <motion.button
-          type="button"
-          className="intel-pill"
-          whileHover={MH.chip}
-          whileTap={MH.tap}
-          transition={MH.spring}
-          onClick={() => setRules((prev) => [...prev, { field: fields[0] || "status", op: "=", value: "active" }])}
-        >
-          <Plus size={12} /> Add Rule
-        </motion.button>
-        <motion.button
-          type="button"
-          className="intel-pill is-active"
-          whileHover={MH.chip}
-          whileTap={MH.tap}
-          transition={MH.spring}
-          onClick={() => onAction?.({ type: "send", payload: { query: compiled } })}
-        >
-          Run Query
-        </motion.button>
-      </div>
-      <pre className="intel-log-row__payload" style={{ marginTop: 8 }}>{compiled || "/* empty query */"}</pre>
     </IntelCardShell>
   );
 }

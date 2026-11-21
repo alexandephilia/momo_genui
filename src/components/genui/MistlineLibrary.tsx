@@ -95,6 +95,11 @@ import { MermaidRenderer } from "./MermaidRenderer";
 import { hashString, inferContextualIcon, MistlineIcon } from "./MistlineIcons";
 import { parseMermaidToGraph } from "@/lib/intelligence/mermaidToGraph";
 import { getIntelComponent } from "@/lib/intelligence/registry";
+import {
+  bindNewsArticlesToSources,
+  normalizeNewsArticles,
+  type NewsArticle,
+} from "@/lib/openui/newsBinding";
 import { initializeIntelligenceUI } from "@/lib/intelligence/registerAll";
 import { IntelVariantContext } from "@/components/intelligence/shared/IntelCardShell";
 import {
@@ -11020,6 +11025,13 @@ function adaptIntelDataForRegistry(
     return { targetId: snakeId, data: { ...rawData, options } };
   }
 
+  if (snakeId === "news_feed") {
+    const articles = normalizeNewsArticles(
+      rawData.articles ?? rawData.items ?? rawData.stories,
+    );
+    return { targetId: snakeId, data: { ...rawData, articles } };
+  }
+
   if (snakeId === "risk_matrix") {
     const risks = arr(rawData.risks ?? rawData.items).map((r, idx) => {
       if (typeof r === "string") {
@@ -11494,6 +11506,17 @@ export function MistlineComponent({
     getIntelComponent(snakeId);
   if (intelEntry?.component) {
     const IntelCmp = intelEntry.component;
+    // A news link or photo is only shown when it traces back to one of this turn's sources.
+    const intelData =
+      targetId === "news_feed"
+        ? {
+            ...adaptedData,
+            articles: bindNewsArticlesToSources(
+              adaptedData.articles as NewsArticle[],
+              rest.sources,
+            ),
+          }
+        : adaptedData;
     const intelVariant = str(adaptedData.variant, "default");
     return (
       <MistlineBlockStreamContext.Provider
@@ -11502,7 +11525,7 @@ export function MistlineComponent({
         <IntelVariantContext.Provider value={intelVariant}>
           <PaintScope>
             <IntelCmp
-              data={adaptedData}
+              data={intelData}
               variant={intelVariant}
               state={rest.complete ? "ready" : "streaming"}
               surface={rest.surface}
