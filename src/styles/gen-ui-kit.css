@@ -2396,6 +2396,58 @@ html.theme-transitioning :is(
   padding-top: 84px;
 }
 
+/* Chat ambient: blinking-squares canvas filling the empty right gutter of the
+   chat stage. Density falloff toward the left is baked into the field itself. */
+.chat-ambient-grid {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(42%, 560px);
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* Left ambient only mounts while the rail floats (sidePhase === "closed") —
+   a centered band hugging the rail zone, bleeding 56px off the viewport's
+   left edge, dissolving top/bottom via the mask. */
+.chat-ambient-grid.is-left {
+  right: auto;
+  left: -56px;
+  width: min(34%, 420px);
+  top: 22%;
+  bottom: 22%;
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    #000 18%,
+    #000 82%,
+    transparent
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    #000 18%,
+    #000 82%,
+    transparent
+  );
+}
+
+@media (max-width: 720px) {
+  .chat-ambient-grid.is-left {
+    display: none;
+  }
+}
+
+.chat-ambient-grid__canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
 /* Explore Workspace: Borderless Stage + Ambient SVG + Lower Stacked-Fan Plinths */
 .momo-explore-shell {
   position: relative;

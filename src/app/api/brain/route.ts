@@ -487,29 +487,34 @@ export async function POST(request: Request) {
   }
 
   const pinnedLook = body.pinnedBot?.look;
-  if (pinnedLook && (body.workspaceView ?? "chat") === "chat" && body.roleGateConfirmed !== true) {
+  const sessionLook =
+    typeof body.sessionLook === "string" ? body.sessionLook.trim() : "";
+  // Sessions holding a specialist look gate the same way a pinned bot does;
+  // only rest sessions route freely per turn.
+  const gateLook = pinnedLook || (sessionLook && sessionLook !== "rest" ? sessionLook : "");
+  if (gateLook && (body.workspaceView ?? "chat") === "chat" && body.roleGateConfirmed !== true) {
     const last = rawMessages.at(-1);
     const includesCurrent = last?.role === "user" &&
       (last.text.trim() === latestUserText || last.text.startsWith(`${latestUserText}\n\n[Lampiran:`) ||
         (body.attachments?.length && last.text.startsWith("[Lampiran:")));
     const history = includesCurrent ? rawMessages.slice(0, -1) : rawMessages;
     const previous = history.filter((m) => m.role === "user").at(-1);
-    const decision = decideRoleTurn(latestUserText, pinnedLook, previous?.text);
+    const decision = decideRoleTurn(latestUserText, gateLook, previous?.text);
     if (decision.kind !== "answer") {
       return Response.json({ roleGate: decision }, { status: 409 });
     }
   }
   const resolvedLook = pinnedLook
     ? pinnedLook
-    : inferLookByKeyword(latestUserText, {
-        fallbackLook:
-          body.activeLook && body.activeLook !== "rest"
-            ? body.activeLook
-            : undefined,
-      }) || "rest";
+    : body.roleGateConfirmed === true && sessionLook && sessionLook !== "rest"
+      ? sessionLook
+      : inferLookByKeyword(latestUserText, {
+          fallbackLook:
+            body.activeLook && body.activeLook !== "rest"
+              ? body.activeLook
+              : undefined,
+        }) || "rest";
   const resolvedMood = inferMoodByInput(latestUserText, resolvedLook);
-  const sessionLook =
-    typeof body.sessionLook === "string" ? body.sessionLook.trim() : "";
   const switchedFrom =
     !pinnedLook && sessionLook && sessionLook !== resolvedLook
       ? sessionLook

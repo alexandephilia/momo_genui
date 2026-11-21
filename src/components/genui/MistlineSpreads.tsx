@@ -606,6 +606,15 @@ function Cover({
           className="sp-fill"
           onFailed={() => setPhotoFailed(true)}
         />
+        <MistlinePhoto
+          src={resolvedImage}
+          query={imageQuery || undefined}
+          autoResolve={Boolean(!resolvedImage && imageQuery)}
+          seed={title}
+          ratio="auto"
+          className="sp-cover__veil"
+          skipClaimRegistration
+        />
         <div className="sp-cover__top-bar">
           <span className="gu-pen sp-cover__pen momo-hand-title">
             {str(p.kicker) || blueprint?.specimenKicker || "sorotan visual"}

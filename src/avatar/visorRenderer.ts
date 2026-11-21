@@ -1110,6 +1110,14 @@ class VisorFaceCanvas {
         this.curMode = this.prevMode = targetMode;
         this.modeT = 1;
       } else if (targetMode !== this.curMode) {
+        // Freeze the on-screen face as the transition's "from" side — the main
+        // canvas still holds last frame's output, so one blit replaces the
+        // per-frame prev-mode re-raster the composite used to require.
+        const bA = this.ensureBuf("fromBuf");
+        const bc = bA.ctx;
+        bc.setTransform(1, 0, 0, 1, 0, 0);
+        bc.clearRect(0, 0, FW, FH);
+        bc.drawImage(this.canvas, 0, 0);
         if (targetMode === this.prevMode && this.modeT < 0.85) {
           const old = this.curMode;
           this.curMode = this.prevMode;
@@ -1186,17 +1194,14 @@ class VisorFaceCanvas {
     const u = this.modeT * this.modeT * (3 - 2 * this.modeT);
     const bA = this.ensureBuf("fromBuf");
     const bB = this.ensureBuf("toBuf");
-    const modePairs: ReadonlyArray<readonly [FaceBuffer, number | null]> = [
-      [bA, this.prevMode],
-      [bB, this.curMode],
-    ];
-    for (const [b, md] of modePairs) {
-      b.ctx.setTransform(1, 0, 0, 1, 0, 0);
-      b.ctx.clearRect(0, 0, FW, FH);
-      b.ctx.setTransform(FSCALE, 0, 0, -FSCALE, 0.45 * FSCALE, 0.25 * FSCALE);
-      b.ctx.lineCap = b.ctx.lineJoin = "round";
-      this.renderFaceMode(b.ctx, lc, o, md ?? 0, eyeCol, gx, gy);
-    }
+    // "from" side is the frozen transition-start snapshot above — only the
+    // "to" mode re-rasterizes per frame, halving the transition's 2D cost.
+    const b = bB.ctx;
+    b.setTransform(1, 0, 0, 1, 0, 0);
+    b.clearRect(0, 0, FW, FH);
+    b.setTransform(FSCALE, 0, 0, -FSCALE, 0.45 * FSCALE, 0.25 * FSCALE);
+    b.lineCap = b.lineJoin = "round";
+    this.renderFaceMode(b, lc, o, this.curMode ?? 0, eyeCol, gx, gy);
 
     const cx = FW * 0.5;
     const cy = FH * 0.48;

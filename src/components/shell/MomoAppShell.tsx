@@ -73,6 +73,7 @@ import {
 import { extractMistlineBoardDrafts } from "@/lib/mistlineCatalog";
 import { recordVerifiedImageUrls, repairImageUrlsInText } from "@/lib/verifiedImagePool";
 import { planMistlineSpreads } from "@/components/genui/MistlineSpreads";
+import { BlinkingSquares } from "@/components/ambient/BlinkingSquares";
 import {
   BoardItemStateContext,
   boardStickerStateOf,
@@ -971,6 +972,7 @@ export const MomoAppShell: React.FC = () => {
   );
   const [concaveDockSize, setConcaveDockSize] = useState({ w: 288, h: 36 });
   const [dockScope, animateDock] = useAnimate();
+  const [, animateSide] = useAnimate();
   const [crestHovered, setCrestHovered] = useState(false);
   const crestCloseTimerRef = useRef<number | null>(null);
   const themeWaveTimerRef = useRef<number | null>(null);
@@ -1005,6 +1007,17 @@ export const MomoAppShell: React.FC = () => {
   const [sideOpen, setSideOpen] = useState(false);
   const [sidePhase, setSidePhase] = useState<SidePhase>("open");
   const sideHidden = sidePhase !== "open";
+  const [isMobile, setIsMobile] = useState(
+    () => typeof window !== "undefined" && window.innerWidth <= 720,
+  );
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 720px)");
+    const onChange = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    setIsMobile(mq.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+  // Mobile drawer is governed by sideOpen alone — never by the desktop rail phase.
   const sideFocusRef = useRef(false);
   const [railHistoryOpen, setRailHistoryOpen] = useState(false);
   const [railSearch, setRailSearch] = useState("");
@@ -1113,6 +1126,25 @@ export const MomoAppShell: React.FC = () => {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [sideOpen]);
+
+  // Mobile drawer slide is motion-owned; the CSS transform only hides the
+  // panel pre-hydration, so the spring takes over without a flash.
+  useEffect(() => {
+    const el = sidebarRef.current;
+    if (!el) return;
+    if (!isMobile) {
+      el.style.removeProperty("transform");
+      return;
+    }
+    const controls = animateSide(
+      el,
+      { x: sideOpen ? "0%" : "-105%" },
+      reduceMotion
+        ? { duration: 0 }
+        : { type: "spring", stiffness: 400, damping: 38 },
+    );
+    return () => controls.stop();
+  }, [animateSide, isMobile, sideOpen, reduceMotion]);
 
   const heroCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const slotBigRef = useRef<HTMLDivElement | null>(null);
@@ -1526,11 +1558,16 @@ export const MomoAppShell: React.FC = () => {
     [activeSession, activeLook],
   );
 
+  const accentTuple = useMemo(
+    () =>
+      offline
+        ? ROLE_PALETTES.ash
+        : resolvePaletteTuple(activeLook, paletteOverrides),
+    [activeLook, paletteOverrides, offline],
+  );
+
   const accentStyle = useMemo(() => {
-    const tuple = offline
-      ? ROLE_PALETTES.ash
-      : resolvePaletteTuple(activeLook, paletteOverrides);
-    const [light, accent, shade, deep] = tuple;
+    const [light, accent, shade, deep] = accentTuple;
 
     return {
       "--accent": accent,
@@ -2038,20 +2075,31 @@ export const MomoAppShell: React.FC = () => {
       // to another domain, intercept in-character on the Momo avatar bubble BEFORE calling the LLM.
       const userMsgId = precedingUserMsg?.id ?? makeId("u");
       const botMsgId = makeId("m");
+      // A session holding a specialist look — pinned or auto-routed — is protected the
+      // same way; only "rest" sessions route freely.
+      const sessionGateLook =
+        !isPinnedRole && existingSession?.look && existingSession.look !== "rest"
+          ? existingSession.look
+          : undefined;
+      const gateLook =
+        effectiveWorkspaceView === "chat" && !options?.bypassRoleGate
+          ? (isPinnedRole ? currentBot.look : sessionGateLook)
+          : undefined;
       const makeGateMessage = (decision: Exclude<RoleDecision, { kind: "answer" }>): ChatMessage => {
         const suggestedRoleName = LOOK_NAMES[decision.suggestedLook] || decision.suggestedLook;
+        const gateRoleName = isPinnedRole ? currentBot.name : LOOK_NAMES[gateLook || ""] || gateLook || "Momo";
         return {
           id: botMsgId,
           role: "momo",
           text: decision.kind === "clarify"
-            ? `Mau lanjut dari sisi ${currentBot.name}, atau pindah ke ${suggestedRoleName} untuk bagian itu?`
+            ? `Mau lanjut dari sisi ${gateRoleName}, atau pindah ke ${suggestedRoleName} untuk bagian itu?`
             : "",
-          look: currentBot.look,
-          botLabel: currentBot.name,
+          look: gateLook || currentBot.look,
+          botLabel: isPinnedRole ? currentBot.name : `Momo · ${gateRoleName}`,
           showActions: false,
           roleGate: {
-            activeLook: currentBot.look,
-            activeRoleName: currentBot.name,
+            activeLook: gateLook || currentBot.look,
+            activeRoleName: gateRoleName,
             suggestedLook: decision.suggestedLook,
             suggestedRoleName,
             originalQuery: text,
@@ -2061,9 +2109,7 @@ export const MomoAppShell: React.FC = () => {
       };
       const historyEnd = isEditUser ? preEditUserIndex : isRetry ? prePrecedingUserIdx : preChannelMessages.length;
       const previousUser = preChannelMessages.slice(0, Math.max(0, historyEnd)).filter((m) => m.role === "user").at(-1);
-      const decision = decideRoleTurn(text,
-        effectiveWorkspaceView === "chat" && isPinnedRole && !options?.bypassRoleGate ? currentBot.look : undefined,
-        previousUser?.text);
+      const decision = decideRoleTurn(text, gateLook, previousUser?.text);
       if (decision.kind !== "answer") {
         const gateMsg = makeGateMessage(decision);
         const userMsgObj: ChatMessage = {
@@ -3673,7 +3719,7 @@ export const MomoAppShell: React.FC = () => {
   }, []);
 
   const handleToggleSidebar = useCallback(() => {
-    if (typeof window !== "undefined" && window.innerWidth <= 720) {
+    if (isMobile) {
       setProfileMenuOpen(false);
       setSideOpen((v) => !v);
     } else if (sidePhase === "open") {
@@ -3681,7 +3727,7 @@ export const MomoAppShell: React.FC = () => {
     } else {
       openSidebar();
     }
-  }, [closeSidebar, openSidebar, sidePhase]);
+  }, [closeSidebar, isMobile, openSidebar, sidePhase]);
 
   const focusAfterSidebar = (id: string) => {
     if (!sideFocusRef.current) return;
@@ -3692,22 +3738,22 @@ export const MomoAppShell: React.FC = () => {
   return (
     <div
       ref={appMountRef}
-      className={`app${sideHidden ? " side-hidden" : ""}`}
+      className={`app${sideHidden && !isMobile ? " side-hidden" : ""}`}
       style={accentStyle}
     >
       {/* Left Navigation Sidebar (fixed-width inner wrapper avoids text reflow on collapse/reveal) */}
       <aside
         ref={sidebarRef}
         id="side"
-        className={`side${sideOpen ? " open" : ""}${sideHidden ? " is-hidden" : ""}`}
-        aria-hidden={sideHidden ? true : undefined}
-        inert={sideHidden}
+        className={`side${sideOpen ? " open" : ""}${sideHidden && !isMobile ? " is-hidden" : ""}`}
+        aria-hidden={(isMobile ? !sideOpen : sideHidden) ? true : undefined}
+        inert={isMobile ? !sideOpen : sideHidden}
       >
         <motion.div
           className="side-inner"
           variants={reduceMotion ? SIDE_PANEL_REDUCED : SIDE_PANEL_VARIANTS}
           initial={false}
-          animate={sideHidden ? "collapsed" : "open"}
+          animate={isMobile ? "open" : sideHidden ? "collapsed" : "open"}
           onAnimationComplete={(label) => {
             if (label === "collapsed") {
               setSidePhase((p) => (p === "closing" ? "closed" : p));
@@ -4444,14 +4490,14 @@ export const MomoAppShell: React.FC = () => {
           data-workspace-view={workspaceView}
         >
           {/* Top header sidebar toggle - HANYA muncul saat sidebar terbuka atau mobile; saat sidebar tersembunyi (sideHidden), akses sidebar sepenuhnya lewat floating mini rail avatar di kiri agar tidak dobel tombol */}
-          {!sideHidden && (
+          {(!sideHidden || isMobile) && (
             <motion.button
               id="sideToggle"
               type="button"
               className="icon-btn side-toggle"
               aria-label="Tampilkan atau sembunyikan sidebar"
               title="Sembunyikan sidebar"
-              aria-expanded={!sideHidden}
+              aria-expanded={isMobile ? sideOpen : !sideHidden}
               initial={{ opacity: 0, scale: 0.88 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.88 }}
@@ -4747,6 +4793,21 @@ export const MomoAppShell: React.FC = () => {
               },
             }}
           >
+            <AnimatePresence initial={false}>
+              {workspaceView === "chat" && started && sidePhase === "closed" && (
+                <BlinkingSquares
+                  key="chat-ambient-l"
+                  className="chat-ambient-grid is-left"
+                  direction="left"
+                  gridSize={72}
+                  squareSize={0.24}
+                  fadeStart={0.55}
+                  intensity={dark ? 0.55 : 0.9}
+                  color={dark ? accentTuple[1] : accentTuple[2]}
+                />
+              )}
+
+            </AnimatePresence>
             {workspaceView === "explore" ? (
               <BoardItemStateContext.Provider value={boardStickerStates}>
                 <ExploreWorkspaceView
