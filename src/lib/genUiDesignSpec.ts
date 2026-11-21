@@ -42,8 +42,8 @@ const SURFACE_HINTS: Record<WorkspaceViewId, string> = {
  * Roles set analytical posture and capability bias — never a rigid cage.
  */
 export const ROLE_PREFERRED_FAMILIES: Record<string, string[]> = {
-  rest: ["VisualDossier", "NewsFeed", "ExecutiveSummary", "FactCheckPanel", "Map", "Versus", "Cards", "CatalogShelf", "AnnotatedSheet", "RegionalShowcase", "Table", "Steps", "Adjuster", "BentoGrid", "SwotAnalysis"],
-  traveller: ["TransitRouteCard", "VisualDossier", "Map", "Plan", "ImageWithCaption", "Versus", "BentoGrid", "Adjuster", "Cards", "Checklist", "Stats"],
+  rest: ["VisualDossier", "NewsFeed", "WeatherForecast", "ExecutiveSummary", "FactCheckPanel", "Map", "Versus", "Cards", "CatalogShelf", "AnnotatedSheet", "RegionalShowcase", "Table", "Steps", "Adjuster", "BentoGrid", "SwotAnalysis"],
+  traveller: ["TransitRouteCard", "VisualDossier", "Map", "WeatherForecast", "Plan", "ImageWithCaption", "Versus", "BentoGrid", "Adjuster", "Cards", "Checklist", "Stats"],
   designer: ["MoodboardMosaic", "Palette", "ImageComparison", "ImageGallery", "Cards", "TradeoffMatrix", "BentoGrid", "Diagram", "Checklist", "Headline"],
   money: ["Adjuster", "CostBenefitAnalysis", "Stats", "KpiCard", "LineChart", "PieChart", "ComparisonTable", "DataTable", "Scorecard", "BentoGrid"],
   bug: ["RootCauseAnalysis", "CodeDiffPatch", "Callout", "Diagram", "Code", "Steps", "Flow", "Checklist", "Timeline", "BentoGrid"],

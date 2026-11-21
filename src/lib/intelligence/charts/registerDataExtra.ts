@@ -23,6 +23,7 @@ import {
   TrendAnalysis,
   DistributionAnalysis,
   ForecastChart,
+  WeatherForecast,
 } from "@/components/intelligence/charts/DataCatalogSuite";
 
 export function registerDataExtra(): void {
@@ -446,6 +447,58 @@ export function registerDataExtra(): void {
         { label: "Apr", forecast: 26.4, upper: 29.8 },
         { label: "May", forecast: 31.9, upper: 37.5 },
         { label: "Jun", forecast: 38.2, upper: 46.1 },
+      ],
+    },
+  });
+
+  registerIntelComponent({
+    spec: makeIntelSpec({
+      componentId: "weather_forecast",
+      category: "data",
+      secondaryCategories: ["interactive"],
+      description: "Current-conditions weather hero with a toggleable Day (hourly strip) / Week (7-day range bars) forecast view.",
+      dataSchema: `{ location?: string; subtitle?: string; current: { temp: number; unit?: string; cond?: string; icon?: string; hi?: number; lo?: number; feelsLike?: number; humidity?: number; windKph?: number; precipChance?: number; uvIndex?: number; updatedAt?: string }; hourly?: { time: string; temp: number; icon?: string; precipChance?: number }[]; daily?: { day: string; icon?: string; cond?: string; lo: number; hi: number; precipChance?: number }[] }`,
+      complexity: "low",
+      promptSummary: "Weather card: current conditions + hourly/daily toggle.",
+      promptWhen: "Any weather question — today, this week, or a trip forecast for a place.",
+    }),
+    component: WeatherForecast,
+    sampleData: {
+      location: "Bandung",
+      subtitle: "Updated 10:20 WIB",
+      current: {
+        temp: 24,
+        unit: "C",
+        cond: "Cerah berawan",
+        icon: "sun-cloud",
+        hi: 27,
+        lo: 19,
+        feelsLike: 25,
+        humidity: 78,
+        windKph: 9,
+        precipChance: 35,
+        uvIndex: 6,
+      },
+      hourly: [
+        { time: "Now", temp: 24, icon: "sun-cloud", precipChance: 10 },
+        { time: "11:00", temp: 25, icon: "sun", precipChance: 5 },
+        { time: "12:00", temp: 26, icon: "sun", precipChance: 5 },
+        { time: "13:00", temp: 27, icon: "cloud-sun", precipChance: 15 },
+        { time: "14:00", temp: 27, icon: "cloud", precipChance: 30 },
+        { time: "15:00", temp: 26, icon: "cloud", precipChance: 45 },
+        { time: "16:00", temp: 25, icon: "drizzle", precipChance: 60 },
+        { time: "17:00", temp: 24, icon: "rain", precipChance: 70 },
+        { time: "18:00", temp: 23, icon: "rain", precipChance: 65 },
+        { time: "19:00", temp: 22, icon: "cloud-moon", precipChance: 40 },
+      ],
+      daily: [
+        { day: "Today", icon: "sun-cloud", lo: 19, hi: 27, precipChance: 35 },
+        { day: "Sen", icon: "rain", lo: 18, hi: 25, precipChance: 75 },
+        { day: "Sel", icon: "drizzle", lo: 18, hi: 26, precipChance: 55 },
+        { day: "Rab", icon: "cloud", lo: 19, hi: 26, precipChance: 40 },
+        { day: "Kam", icon: "sun-cloud", lo: 18, hi: 27, precipChance: 20 },
+        { day: "Jum", icon: "sun", lo: 19, hi: 28, precipChance: 10 },
+        { day: "Sab", icon: "storm", lo: 18, hi: 25, precipChance: 80 },
       ],
     },
   });

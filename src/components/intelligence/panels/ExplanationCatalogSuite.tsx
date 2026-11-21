@@ -433,7 +433,6 @@ export function LimitationPanel({ data, state, streaming, sources }: IntelBasePr
               <motion.div
                 key={s(lim.id, `lim-${i}`)}
                 className="intel-lim"
-                data-sev={sev}
                 variants={STAGGER_ITEM}
               >
                 <div className="intel-lim__head">

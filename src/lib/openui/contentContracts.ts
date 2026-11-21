@@ -59,6 +59,11 @@ const contracts: Record<string, ContentContract> = {
     fields: ["items", "tasks"],
     accepts: row => text(row) || named(row, "text", "title", "label", "task"),
   },
+  WeatherForecast: {
+    requirement: "hourly/daily rows: real forecast entries with a time or day label and numeric temp or lo/hi — never invented values",
+    fields: ["hourly", "daily", "hours", "week", "weekly"],
+    accepts: row => named(row, "time", "day", "label") && (text(record(row).temp) || text(record(row).hi) || text(record(row).lo)),
+  },
   NewsFeed: {
     requirement: "articles: real stories from this turn's web_search results, each with a headline and that result's exact url",
     fields: ["articles", "items", "stories"],

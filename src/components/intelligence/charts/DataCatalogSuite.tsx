@@ -11,3 +11,4 @@ export { IntelPieChart, IntelTreemap, FunnelChart, SankeyDiagram } from "./Suite
 export { ScatterPlot, BubbleChart, IntelRadarChart, BoxPlot, OutlierHighlight } from "./SuitePoints";
 export { TrendAnalysis, ForecastChart } from "./SuiteSeries";
 export { Heatmap, PivotTable } from "./SuiteGrids";
+export { WeatherForecast } from "./WeatherForecast";

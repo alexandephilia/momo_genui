@@ -51,6 +51,7 @@ export const CAPABILITY_FAMILIES: Record<CapabilityFamilyId, CapabilityFamilySpe
       "NewsFeed",
       "BentoGrid",
       "Callout",
+      "WeatherForecast",
     ],
   },
   comparative_evaluation: {

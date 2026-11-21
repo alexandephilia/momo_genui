@@ -763,6 +763,19 @@ export const MOMO_LEAF_COMPONENT_DEFS: MomoOpenUiComponentDef[] = [
     }),
   },
   {
+    name: "WeatherForecast",
+    group: "intelligence",
+    description:
+      "Weather card for a place: current-conditions hero plus a Day (hourly strip) / Week (7-day range bars) toggle the user can switch. `current` holds {temp, unit?, cond?, icon?, hi?, lo?, feelsLike?, humidity?, windKph?, precipChance?, uvIndex?, updatedAt?}; `hourly` = [{time, temp, icon?, precipChance?}]; `daily` = [{day, icon?, lo, hi, precipChance?}]. `icon` vocabulary: sun|sun-cloud|cloud|rain|drizzle|storm|snow|fog|moon|cloud-moon|wind. Only emit with REAL forecast data from weather tools/web results — never invent temperatures.",
+    props: z.object({
+      location: z.string(),
+      current: IntelDataObjectSchema,
+      hourly: z.array(IntelDataObjectSchema).optional(),
+      daily: z.array(IntelDataObjectSchema).optional(),
+      subtitle: z.string().optional(),
+    }),
+  },
+  {
     name: "KpiCard",
     group: "intelligence",
     description:
@@ -1300,6 +1313,7 @@ export const MOMO_COMPONENT_GROUPS: ComponentGroup[] = [
       "Timeline",
       "Scorecard",
       "EvidenceCard",
+      "WeatherForecast",
     ],
   },
 ];
