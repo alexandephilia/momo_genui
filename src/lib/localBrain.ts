@@ -15,7 +15,7 @@ const SEMANTIC_LOOK_BOOSTS: Array<[string, RegExp, number]> = [
   ["investigate", /\b(?:root\s+cause|akar\s+masalah|investigasi|hipotesis|bukti|anomali|kenapa\s+latency|kenapa\s+lambat|audit\s+data)\b/i, 2],
   ["guard", /\b(?:xss|csrf|idor|sql\s+injection|csp|oauth|jwt|kebocoran\s+session|blast\s+radius|destructive)\b/i, 2],
   ["cook", /\b(?:resep|bumbu|marinasi|tumis|goreng|rebus|kukus|panggang|ulen|adonan|porsi|kalori\s+masak|kopi|decaf|espresso|latte|cappuccino|americano|cold\s*brew|french\s*press|mesin\s+press|seduh|barista|minuman|matcha|v60|moka\s*pot)\b/i, 2],
-  ["tutor", /\b(?:jelaskan|jelasin|ajarin|cara\s+kerja|analogi|prinsip\s+dasar|konsep\s+dasar|apa\s+itu|bagaimana\s+mekanisme|bedanya|perbedaan|kenapa\s+bisa|kok\s+bisa|pahami)\b/i, 2],
+  ["tutor", /\b(?:ajarin|ngajarin|tutorial|belajar|materi\s+belajar|cara\s+kerja|bagaimana\s+mekanisme|analogi|prinsip\s+dasar|konsep\s+dasar|pahami|mengerti)\b/i, 2],
 ];
 
 function collectLookScores(clean: string): Map<string, number> {

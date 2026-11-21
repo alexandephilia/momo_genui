@@ -408,7 +408,15 @@ export function useMomoStage(refs: StageSlotRefs, state: StageStateInput) {
 
     let rafId = 0;
     let lastTs = performance.now();
+    let gapEMA = 0;
+    let renderQuality = 1;
+    let qCooldown = 0;
+    let halfRate = false;
+    let halfPhase = false;
+    let probeUntil = 0;
+    let probing = 0;
     let perfStamp = 0;
+    let dbgStamp = 0;
     let lastPerfStr = "";
     let frameSize = 0;
     let cachedSlotRect: { left: number; top: number; width: number } | null = null;
@@ -441,7 +449,8 @@ export function useMomoStage(refs: StageSlotRefs, state: StageStateInput) {
 
     const tick = (now: number) => {
       rafId = 0;
-      const dt = Math.min(0.05, Math.max(0.001, (now - lastTs) / 1000));
+      const rawGap = (now - lastTs) / 1000;
+      const dt = Math.min(0.05, Math.max(0.001, rawGap));
       lastTs = now;
       const cur = latestRef.current;
       const m = mascotRef.current;
@@ -461,6 +470,52 @@ export function useMomoStage(refs: StageSlotRefs, state: StageStateInput) {
           rafId = requestAnimationFrame(tick);
         }
         return;
+      }
+
+      // Adaptive render quality: sustained frame gaps over ~19.5ms mean the raymarch
+      // is missing vsync; drop internal resolution (hysteresis prevents oscillation).
+      // If even the quality floor can't hold pacing, lock to every-other-frame —
+      // a steady ~30fps reads smoother than erratic 40-55 — and periodically
+      // probe whether full rate is possible again.
+      const active = !halfRate || probing > 0;
+      if (active) gapEMA = gapEMA ? gapEMA + (rawGap - gapEMA) * 0.08 : rawGap;
+      if (qCooldown > 0) {
+        qCooldown--;
+      } else if (active && gapEMA > 0.0195) {
+        if (renderQuality > 0.62) {
+          renderQuality = Math.max(0.62, renderQuality - 0.14);
+          qCooldown = 45;
+        } else if (!halfRate) {
+          halfRate = true;
+          halfPhase = false;
+          probeUntil = now + 10000;
+          gapEMA = 0;
+          qCooldown = 90;
+        }
+      } else if (active && gapEMA < 0.0155 && renderQuality < 1) {
+        renderQuality = Math.min(1, renderQuality + 0.1);
+        qCooldown = 150;
+      }
+
+      if (halfRate && !probing && now >= probeUntil) probing = 45;
+      if (probing > 0) {
+        probing--;
+        if (probing === 0) {
+          if (gapEMA < 0.0175) {
+            halfRate = false;
+            qCooldown = 150;
+          } else {
+            probeUntil = now + 12000;
+            gapEMA = 0;
+          }
+        }
+      }
+      if (halfRate && !probing) {
+        halfPhase = !halfPhase;
+        if (halfPhase) {
+          rafId = requestAnimationFrame(tick);
+          return;
+        }
       }
 
       // Sync React state targets directly inside RAF loop + reactive offline impact physics
@@ -1152,9 +1207,18 @@ export function useMomoStage(refs: StageSlotRefs, state: StageStateInput) {
           hover: ptrRef.current.hover ? 1 : 0,
           poke: ptrRef.current.poke,
           time: tr.rt,
+          quality: renderQuality,
         });
       }
 
+      if (now - dbgStamp > 1000) {
+        dbgStamp = now;
+        (window as unknown as Record<string, unknown>).__momoPerf = {
+          gapMs: Math.round(gapEMA * 10000) / 10,
+          quality: Math.round(renderQuality * 100) / 100,
+          halfRate,
+        };
+      }
       if (cur.onPerfText && now - perfStamp > 600) {
         perfStamp = now;
         const fps = reducedMotion ? 0 : Math.round(1 / Math.max(0.008, dt));
@@ -1181,6 +1245,7 @@ export function useMomoStage(refs: StageSlotRefs, state: StageStateInput) {
 
     const resyncStageOnReturn = () => {
       lastTs = performance.now();
+      gapEMA = 0;
       timeRef.current.lastActivity = timeRef.current.rt;
       ptrRef.current.hover = false;
       ptrRef.current.seen = false;

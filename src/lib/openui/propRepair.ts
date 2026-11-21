@@ -34,7 +34,14 @@ const SLOT_ORDER = new Map<string, Array<[string, SlotKind]>>(
 );
 
 const empty = (v: unknown) => v === undefined || v === null || v === "";
-const CHART_COMPONENTS = new Set(["Chart", "PieChart", "BarChart", "LineChart", "AreaChart", "RadarChart"]);
+const CHART_COMPONENTS = new Set([
+  "Chart", "PieChart", "BarChart", "LineChart", "AreaChart", "RadarChart",
+  // Intel charts — same string-number row repair on their own field names.
+  "MetricGroup", "HorizontalBarChart", "ScatterPlot", "BubbleChart", "Treemap",
+  "Histogram", "BoxPlot", "FunnelChart", "WaterfallChart", "OutlierHighlight",
+  "TrendAnalysis", "DistributionAnalysis", "ForecastChart", "AllocationChart",
+  "StackedBarChart", "DonutChart",
+]);
 
 /** "12%", "Rp 6.000.000", "1,5" → number. Returns undefined when the text is not one plain number. */
 function parseLooseNumber(raw: string): number | undefined {
@@ -144,14 +151,14 @@ export function repairOpenUiProps(name: string, props: Props): Props {
   }
 
   if (CHART_COMPONENTS.has(name)) {
-    for (const field of ["data", "items", "points", "slices"]) {
+    for (const field of ["data", "items", "points", "slices", "metrics", "stages", "allocations", "bins", "steps", "buckets", "groups"]) {
       const list = next[field];
       if (!Array.isArray(list)) continue;
       let changed = false;
       const rows = list.map((row) => {
         if (!row || typeof row !== "object" || Array.isArray(row)) return row;
         const r = row as Props;
-        const key = ["value", "count", "amount", "share", "y"].find((k) => typeof r[k] === "string");
+        const key = ["value", "count", "amount", "share", "y", "size", "delta", "frequency", "x", "z", "actual", "forecast", "upper", "median"].find((k) => typeof r[k] === "string");
         const parsed = key ? parseLooseNumber(r[key] as string) : undefined;
         if (!key || parsed === undefined) return row;
         changed = true;

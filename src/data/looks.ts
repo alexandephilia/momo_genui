@@ -646,7 +646,7 @@ export const LOOK_KEYWORD_RULES: Array<[string, RegExp]> = [
   ["planner", /\b(plan|rencana|perencana|jadwal|schedule|agenda|book|booking|meja|table|reservasi|yogyakarta|itinerary|rapat|meeting)\b/i],
   ["money", /\b(money|uang|keuangan|budget|anggaran|gaji|salary|split|patungan|tagihan|bill|pajak|tax|invest|tabungan|inflasi|bunga|rupiah|rp)\b/i],
   ["coach", /\b(coach|pelatih|workout|olahraga|latihan|gym|pushup|squat|plank|lunge|lari|run|cardio|kalori|kebiasaan|habit|tidur|sleep)\b/i],
-  ["tutor", /\b(tutor|mentor|explain|jelasin|jelaskan|ajar|belajar|paham|pahami|mengerti|konsep|prinsip|mekanisme|analogi|bedanya|perbedaan|kenapa bisa|kok bisa|gimana cara kerja|apa itu|what is|how does|cara kerja|dns|vpn|https|cookie|cache|quantum|schr(ö|o)dinger)\b/i],
+  ["tutor", /\b(tutor|mentor|ajar|ngajarin|belajar|tutorial|paham|pahami|mengerti|materi|pelajaran|konsep|prinsip|analogi)\b/i],
   ["garden", /\b(garden|kebun|pekebun|plant|tanaman|daun|leaf|kuning|layu|basil|kangkung|tomat|sukulen|succulent|pupuk|tanah|pot|repot|siram)\b/i],
   ["write", /\b(write|nulis|penulis|tulis|draft|draf|email|surat|apology|maaf|bio|caption|artikel|essay|blog|copywriting|surat lamaran|cold email)\b/i],
 ];

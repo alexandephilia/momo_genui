@@ -8,7 +8,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { ArrowLeft, ArrowLeftRight, ArrowRight, Quote } from "lucide-react";
+import { ArrowLeft, ArrowLeftRight, ArrowRight, ArrowUpRight, Quote } from "lucide-react";
 import { MomoIcon } from "@/components/icons/MomoIcon";
 import { MermaidRenderer } from "@/components/genui/MermaidRenderer";
 import { MistlinePhoto } from "@/components/genui/MistlineLibrary";
@@ -22,6 +22,7 @@ import {
 } from "@/lib/citationPlacement";
 import { dedupeConsecutiveParagraphs, replaceProseEmDashes } from "@/lib/genUiStreamParser";
 import { renderHandwrittenMath, scanInlineMathToken } from "@/lib/inlineMath";
+import { sourceHost, sourceTime } from "@/lib/sourceMeta";
 import type { SourceItem } from "@/types/momo";
 
 export interface MarkdownMessageProps {
@@ -1087,7 +1088,7 @@ function renderBlock(
     case "figure":
       // No url means the line was cut off: a placeholder while streaming, nothing once final.
       if (!block.url && !isStreaming) return null;
-      return <MarkdownFigure key={key} alt={block.alt} url={block.url} align={block.align} />;
+      return <MarkdownFigure key={key} alt={block.alt} url={block.url} align={block.align} sources={sources} />;
 
     case "code":
       return (
@@ -1222,9 +1223,40 @@ function renderBlock(
   }
 }
 
+/** Same url modulo query/hash/trailing slash — the emitted src may differ in params. */
+function sameUrl(a: string, b: string | undefined): boolean {
+  if (!b) return false;
+  const norm = (s: string) => s.trim().replace(/[?#].*$/, "").replace(/\/+$/, "").toLowerCase();
+  return norm(a) === norm(b);
+}
+
+/** A figure is "sourced" when its photo or title traces back to one of this turn's sources. */
+function matchFigureSource(url: string, title: string, sources: SourceItem[] | undefined) {
+  if (!sources?.length) return undefined;
+  if (url) {
+    const hit = sources.find(
+      (s) => sameUrl(url, s.url) || sameUrl(url, s.imageUrl) || sameUrl(url, s.articleImageUrl),
+    );
+    if (hit) return hit;
+  }
+  const t = title.trim().toLowerCase();
+  if (t.length >= 8) {
+    return sources.find((s) => {
+      const st = s.title.trim().toLowerCase();
+      return st.length >= 8 && (st.includes(t) || t.includes(st));
+    });
+  }
+  return undefined;
+}
+
 /** Inline photo from the answer's own prose. Unverifiable or dead photos disappear. */
-const MarkdownFigure = memo<{ alt: string; url: string; align: MdFigureAlign }>(
-  function MarkdownFigure({ alt, url, align }) {
+const MarkdownFigure = memo<{
+  alt: string;
+  url: string;
+  align: MdFigureAlign;
+  sources?: SourceItem[];
+}>(
+  function MarkdownFigure({ alt, url, align, sources }) {
     const [failed, setFailed] = useState(false);
     const onFailed = useCallback(() => setFailed(true), []);
     if (failed) return null;
@@ -1232,19 +1264,28 @@ const MarkdownFigure = memo<{ alt: string; url: string; align: MdFigureAlign }>(
     const cut = /\s[—–-]\s|:\s/.exec(alt);
     const title = cut ? alt.slice(0, cut.index).trim() : alt;
     const desc = cut ? alt.slice(cut.index + cut[0].length).trim() : "";
+    const source = matchFigureSource(url, title, sources);
+    const host = source ? source.domain || sourceHost(source.url) : "";
+    const photo = url ? (
+      <MistlinePhoto
+        src={url}
+        fallbackQuery={title || undefined}
+        seed={title}
+        icon="image"
+        ratio="4/3"
+        onFailed={onFailed}
+      />
+    ) : (
+      <span className="ph is-searching" style={{ aspectRatio: "4/3" }} aria-busy="true" />
+    );
     return (
-      <figure className={`md-fig is-${align}${url ? "" : " is-pending"}`}>
-        {url ? (
-          <MistlinePhoto
-            src={url}
-            fallbackQuery={title || undefined}
-            seed={title}
-            icon="image"
-            ratio="4/3"
-            onFailed={onFailed}
-          />
+      <figure className={`md-fig is-${align}${url ? "" : " is-pending"}${source ? " is-linked" : ""}`}>
+        {source ? (
+          <a className="md-fig__imglink" href={source.url} target="_blank" rel="noopener noreferrer">
+            {photo}
+          </a>
         ) : (
-          <span className="ph is-searching" style={{ aspectRatio: "4/3" }} aria-busy="true" />
+          photo
         )}
         {alt && (
           <figcaption className="md-fig__cap">
@@ -1255,6 +1296,18 @@ const MarkdownFigure = memo<{ alt: string; url: string; align: MdFigureAlign }>(
               </>
             ) : (
               title
+            )}
+            {source && (
+              <a
+                className="md-fig__meta"
+                href={source.url}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <span className="md-fig__meta-src">{host}</span>
+                {source.publishedDate && <span className="md-fig__meta-date">{sourceTime(source.publishedDate)}</span>}
+                <ArrowUpRight className="md-fig__meta-ic" aria-hidden />
+              </a>
             )}
           </figcaption>
         )}

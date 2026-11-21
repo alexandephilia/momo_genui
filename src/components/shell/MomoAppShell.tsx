@@ -3397,11 +3397,15 @@ export const MomoAppShell: React.FC = () => {
     setMood("neutral");
     stage.resetToRest();
     setSideOpen(false);
+    // "+ Obrolan baru" has to land on a visible chat — on Pinboard it otherwise clears
+    // the session while the user stays on the board and nothing appears to happen.
+    if (workspaceView !== "explore") setWorkspaceView("chat");
   }, [
     activeBot.look,
     cancelOngoingTurn,
     stage,
     stopSpeechSynthesis,
+    workspaceView,
   ]);
 
   const handleSelectSession = useCallback(

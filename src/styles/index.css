@@ -514,6 +514,63 @@
     color: var(--ink);
   }
 
+  /* When the photo traces back to a turn source it links out; the caption gains a
+     source meta row (host · date ↗) in the NewsFeed register. */
+  .md-fig__imglink {
+    display: block;
+    width: 100%;
+    border-radius: var(--gu-radius-well, 10px);
+    transition: opacity 160ms ease;
+  }
+
+  .md-fig__imglink:hover {
+    opacity: 0.88;
+  }
+
+  .md-fig__meta {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 5px;
+    margin-top: 2px;
+    font-family: var(--mono);
+    font-size: 10px;
+    line-height: 14px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--mute);
+    text-decoration: none;
+    width: fit-content;
+  }
+
+  .md-fig__meta-date::before {
+    content: "·";
+    margin-right: 5px;
+    opacity: 0.6;
+  }
+
+  .md-fig__meta-ic {
+    width: 10px;
+    height: 10px;
+    align-self: center;
+    opacity: 0;
+    transform: translate(-2px, 2px);
+    transition: opacity 160ms ease, transform 160ms ease;
+  }
+
+  .md-fig__meta:hover {
+    color: var(--accent-text);
+  }
+
+  .md-fig__meta:hover .md-fig__meta-ic,
+  .md-fig__meta:focus-visible .md-fig__meta-ic {
+    opacity: 1;
+    transform: translate(0, 0);
+  }
+
+  .md-fig.is-full .md-fig__meta {
+    margin-top: 4px;
+  }
+
   @container (max-width: 380px) {
     .md-fig.is-left,
     .md-fig.is-right {

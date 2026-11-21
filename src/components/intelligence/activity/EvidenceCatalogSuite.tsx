@@ -16,6 +16,7 @@ import { useId, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { MH } from "@/components/motion/MotionPrimitives";
 import { buildProxiedImageUrl } from "@/lib/imageAssetContract";
+import { sourceHost, sourceTime } from "@/lib/sourceMeta";
 import {
   CheckCircle2,
   XCircle,
@@ -731,26 +732,6 @@ export function ResearchBrief({ data, state, streaming, sources }: IntelBaseProp
 }
 
 /* 15. NewsFeed */
-function extractNewsHost(rawUrl: string): string {
-  try {
-    return new URL(rawUrl).hostname.replace(/^www\./i, "");
-  } catch {
-    return "";
-  }
-}
-
-const NEWS_DAY = new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short", timeZone: "Asia/Jakarta" });
-const NEWS_YEAR = new Intl.DateTimeFormat("id-ID", { year: "numeric", timeZone: "Asia/Jakarta" });
-
-function newsTime(raw: string): string {
-  const t = raw.trim();
-  if (!/\d{4}/.test(t) && !t.includes("T")) return raw;
-  const ms = Date.parse(t);
-  if (Number.isNaN(ms)) return raw;
-  const d = new Date(ms);
-  const base = NEWS_DAY.format(d);
-  return NEWS_YEAR.format(d) === NEWS_YEAR.format(new Date()) ? base : `${base} ${NEWS_YEAR.format(d)}`;
-}
 
 interface NewsArticle {
   headline: string;
@@ -811,7 +792,7 @@ function NewsMeta({ art }: { art: NewsArticle }) {
       {art.host && <NewsFavicon host={art.host} />}
       {art.outlet && <span className="intel-news__outlet">{art.outlet}</span>}
       {art.outlet && art.time && <span className="intel-news__sep" aria-hidden="true">·</span>}
-      {art.time && <span className="intel-news__time">{newsTime(art.time)}</span>}
+      {art.time && <span className="intel-news__time">{sourceTime(art.time)}</span>}
       {art.tag && <span className="intel-badge intel-news__tag">{art.tag}</span>}
       {art.url && <ArrowUpRight size={11} className="intel-news__ext" aria-hidden="true" />}
     </div>
@@ -898,7 +879,7 @@ export function NewsFeed({ data, state, streaming, sources }: IntelBaseProps) {
       if (!headline) return null;
       const rawUrl = s(art.url);
       const hasUrl = /^https?:\/\//i.test(rawUrl);
-      const host = hasUrl ? extractNewsHost(rawUrl) : "";
+      const host = hasUrl ? sourceHost(rawUrl) : "";
       const rawImg = s(art.imageUrl || art.image);
       return {
         headline,

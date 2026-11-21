@@ -858,8 +858,10 @@ function CardsComp({
     })
     .filter((it) => str(it.title));
   // Mixed-media Cards: if any item carries a photo, every sibling gets a search query
-  // so no card renders text-only next to photos; failures collapse via failedMedia below.
-  if (allItems.some((it) => str(it.image) || str(it.imageQuery))) {
+  // so no card renders text-only next to photos. Cards whose photo then fails keep a
+  // tinted icon tile in the media slot (mediaSet below) instead of collapsing shorter.
+  const mediaSet = allItems.some((it) => str(it.image) || str(it.imageQuery));
+  if (mediaSet) {
     for (const it of allItems) {
       if (!str(it.image) && !str(it.imageQuery)) {
         it.imageQuery = [str(it.title), str(it.subtitle)]
@@ -1193,6 +1195,7 @@ function CardsComp({
             const hasMedia = Boolean(
               (explicitImg || queryText || resolved?.url) && !failedMedia[title],
             );
+            const showBlankTile = !hasMedia && mediaSet;
             return (
               <motion.figure
                 className={`gu-strip__item${live ? " is-interactive" : ""}`}
@@ -1202,7 +1205,7 @@ function CardsComp({
                 key={`strip-${i}`}
                 onClick={() => triggerCardPrompt(it)}
               >
-                {hasMedia && (
+                {hasMedia ? (
                   <div className="gu-place__media">
                     <MistlinePhoto
                       src={explicitImg}
@@ -1252,7 +1255,22 @@ function CardsComp({
                       {renderPinBtn(it, resolved?.url)}
                     </div>
                   </div>
-                )}
+                ) : showBlankTile ? (
+                  <div
+                    className="gu-place__media gu-place__media--blank"
+                    style={{ aspectRatio: "16/10" }}
+                    aria-hidden="true"
+                  >
+                    <MistlineIcon
+                      name={
+                        str(it.icon) ||
+                        inferContextualIcon(`${title} ${str(it.subtitle)}`)
+                      }
+                      size={24}
+                      strokeWidth={1.35}
+                    />
+                  </div>
+                ) : null}
                 <figcaption className="gu-strip__body">
                   <div className="gu-strip__head">
                     <span className="gu-strip__name" title={title}>
@@ -1349,6 +1367,9 @@ function CardsComp({
     const hasMedia = Boolean(
       (explicitImg || queryText || resolved?.url) && !failedMedia[title],
     );
+    // In a set that carries photos, a card whose photo failed keeps the media slot as a
+    // tinted icon tile — uniform anatomy instead of a collapsed, shorter sibling.
+    const showBlankTile = !hasMedia && mediaSet;
 
     return (
       <motion.li
@@ -1359,7 +1380,7 @@ function CardsComp({
         key={`place-${i}`}
         onClick={() => triggerCardPrompt(it)}
       >
-        {hasMedia && (
+        {hasMedia ? (
           <div className="gu-place__media">
             <MistlinePhoto
               src={explicitImg}
@@ -1414,7 +1435,27 @@ function CardsComp({
               </div>
             )}
           </div>
-        )}
+        ) : showBlankTile ? (
+          <div
+            className="gu-place__media gu-place__media--blank"
+            style={{ aspectRatio: cardRatio }}
+            aria-hidden="true"
+          >
+            <MistlineIcon
+              name={
+                str(it.icon) ||
+                inferContextualIcon(`${title} ${str(it.subtitle)}`)
+              }
+              size={26}
+              strokeWidth={1.35}
+            />
+            {str(it.tag) && (
+              <span className="gu-place__glass-tag">
+                {str(it.tag).replace(/[\p{Extended_Pictographic}️\u200D]/gu, "").trim()}
+              </span>
+            )}
+          </div>
+        ) : null}
         {(str(it.subtitle) || str(it.meta)) && (
           <div className="gu-place__spec-strip">
             {str(it.subtitle) && (
@@ -1438,7 +1479,7 @@ function CardsComp({
         <div className="gu-place__body">
           <div className="gu-place__title-row">
             <span className="gu-place__name" title={title}>
-              {!hasMedia && !str(it.subtitle) && str(it.icon) && (
+              {!hasMedia && !showBlankTile && !str(it.subtitle) && str(it.icon) && (
                 <span
                   style={{
                     display: "inline-flex",
@@ -1456,7 +1497,7 @@ function CardsComp({
               )}
               {title}
             </span>
-            {!hasMedia && str(it.tag) && (
+            {!hasMedia && !showBlankTile && str(it.tag) && (
               <span className="gu-tag">{str(it.tag)}</span>
             )}
           </div>
@@ -2354,7 +2395,14 @@ function Versus({
             transition={MH.spring}
             onClick={() => pickOption(key, label)}
           >
-            {pickedSide === key ? `Dipilih (${label}) ✓` : `Pilih ${label}`}
+            <span className="gu-vs__pick-text">
+              {pickedSide === key ? `Dipilih (${label})` : `Pilih ${label}`}
+            </span>
+            {pickedSide === key ? (
+              <Check size={13} strokeWidth={2.4} className="gu-vs__pick-icon" />
+            ) : (
+              <ArrowUpRight size={13} strokeWidth={2.2} className="gu-vs__pick-icon" />
+            )}
           </motion.button>
         )}
       </figure>
@@ -4421,7 +4469,7 @@ function Checklist({ props, complete, sources }: MistlineGenProps) {
         ...x,
         text: str(x.text) || str(x.title) || str(x.label) || str(x.task),
         note: str(x.note) || str(x.detail) || str(x.description),
-        done: x.done === true,
+        done: x.done === true || x.checked === true || x.completed === true,
       };
     })
     .filter((x) => x.text);
@@ -7837,8 +7885,11 @@ function RecipeScalerCard({
       {steps.length > 0 && (
         <ol className="gu-recipe__steps">
           {steps.map((st, idx) => (
-            <li key={idx}>
-              <MistlineInline text={st} sources={sources} />
+            <li key={idx} className="gu-recipe__step">
+              <span className="gu-recipe__step-num" aria-hidden="true">{idx + 1}</span>
+              <span className="gu-recipe__step-body">
+                <MistlineInline text={st} sources={sources} />
+              </span>
             </li>
           ))}
         </ol>
@@ -11489,7 +11540,7 @@ export function MistlineComponent({
     );
   }
 
-  // Bridge to Momo Intelligence UI Registry (supports all 182 snake_case / PascalCase components)
+  // Bridge to Momo Intelligence UI Registry (all 168 registered snake_case ids, addressed by PascalCase chat name)
   initializeIntelligenceUI();
   const snakeId = name
     .trim()

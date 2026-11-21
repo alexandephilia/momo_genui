@@ -8,6 +8,7 @@ import type {
   WorkspaceViewId,
 } from "@/types/momo";
 import { VISUAL_ENTITY_PATTERN } from "@/lib/genUiDesignSpec";
+import { INTEL_CHAT_COMPONENTS } from "@/lib/openui/momoSchema";
 
 /**
  * Context-Aware Generative UI Planner for Momo.
@@ -507,17 +508,23 @@ export function planContextAwareUi(ctx: UIPlanningContext): UIPlan {
     for (const famId of families) chosenFamilies.add(famId);
   }
 
-  // Every role sees the whole catalog. The active families above tell the model where this
+  // Every role sees the whole catalog, including the complete registered Intelligence
+  // suite (`INTEL_CHAT_COMPONENTS` — the same names the stream parser accepts via
+  // `MOMO_LEAF_COMPONENT_DEFS`). The active families above tell the model where this
   // turn's query and evidence point; the role is a preference, never a gate. A constant
   // schema also keeps the static system prompt identical between turns, which caches better.
-  const allowedSet = new Set<string>(
-    Object.values(CAPABILITY_FAMILIES).flatMap((family) => family.components),
-  );
+  const allowedSet = new Set<string>([
+    ...Object.values(CAPABILITY_FAMILIES).flatMap((family) => family.components),
+    ...INTEL_CHAT_COMPONENTS,
+  ]);
 
   const groundingRules: string[] = [];
 
   // Soft Gate 1: Photo/gallery grounding guidance — break the Step-0 chicken-and-egg trap!
-  const isTangibleVisualTopic = VISUAL_ENTITY_PATTERN.test(clean);
+  // Fires on any tangible real-world subject, not only the visual-entity keyword list:
+  // detected geo/locations (cities, stations, routes, venues) are concrete subjects too.
+  const isTangibleVisualTopic =
+    VISUAL_ENTITY_PATTERN.test(clean) || d.hasGeoOrLocations;
   if (d.verifiedImages.length === 0 && isTangibleVisualTopic) {
     groundingRules.push(
       "Visual Grounding Action (BEFORE UI): This topic involves tangible real-world subjects and 0 verified photos are attached yet. Call `search_images` FIRST with clean descriptive photo queries for the specific concrete items/drinks/dishes/places you plan to present (e.g. 2-3 distinct calls for recommended items), then bind each returned `imageUrl` verbatim into `Cards`/`VisualDossier`/`ImageWithCaption`. Only pass `null` if `search_images` returns no usable photo.",

@@ -217,7 +217,7 @@ const PinboardStickerGlyph: React.FC<{
 
 const ESCAPE_HUD_THRESHOLD = 140;
 const DEFAULT_BOARD_PAN_X = 32;
-const DEFAULT_BOARD_PAN_Y = 12;
+const DEFAULT_BOARD_PAN_Y = 64;
 const DEFAULT_BOARD_ZOOM = 0.88;
 const MIN_BOARD_ZOOM = 0.72;
 const MAX_BOARD_ZOOM = 1.15;

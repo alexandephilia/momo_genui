@@ -1,9 +1,14 @@
 import assert from "node:assert/strict";
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { join } from "node:path";
 import { describe, it } from "node:test";
+import { fileURLToPath } from "node:url";
 import {
   buildMomoOpenUiPrompt,
   buildMomoSubsetOpenUiPrompt,
   getMomoOpenUiJSONSchema,
+  INTEL_CHAT_COMPONENTS,
+  MOMO_OPENUI_COMPONENT_NAMES,
 } from "../momoSchema";
 import {
   createEmptyDataProfile,
@@ -442,6 +447,87 @@ describe("OpenUI Finalization, Unresolved Refs & Timeline Schema Recovery", () =
     });
     assert.ok(factSig.recommendedComponents.includes("VisualDossier"));
     assert.ok(factSig.recommendedComponents.includes("FactCheckPanel"));
+  });
+
+  it("exposes every registered Intelligence component to chat: schema, parser, and planner", () => {
+    // The React registry can't be imported in node (it pulls XYFlow CSS), so the
+    // component ids are extracted straight from the registration sources instead:
+    // `componentId:` fields plus `{ id, desc }` array-entry heads.
+    const intelRoot = fileURLToPath(new URL("../../intelligence", import.meta.url));
+    const registerFiles: string[] = [];
+    const walk = (dir: string) => {
+      for (const entry of readdirSync(dir)) {
+        const p = join(dir, entry);
+        if (statSync(p).isDirectory()) walk(p);
+        else if (p.endsWith(".ts")) registerFiles.push(p);
+      }
+    };
+    walk(intelRoot);
+    const registeredIds = new Set<string>();
+    const idPatterns = [
+      /componentId:\s*"([a-z][a-z0-9_]*)"/g,
+      /\{\s*\n\s*id:\s*"([a-z][a-z0-9_]*)",\s*\n\s*(?:desc|dataSchema)\s*:/g,
+    ];
+    for (const file of registerFiles) {
+      const src = readFileSync(file, "utf8");
+      if (!/registerIntelComponent|makeIntelSpec/.test(src)) continue;
+      for (const re of idPatterns) {
+        for (const m of src.matchAll(re)) registeredIds.add(m[1]);
+      }
+    }
+    assert.ok(
+      registeredIds.size >= 160,
+      `registry inventory should cover ~168 components, got ${registeredIds.size}`,
+    );
+
+    const toPascal = (id: string) =>
+      id.split("_").map((w) => w[0].toUpperCase() + w.slice(1)).join("");
+    const chatNames = [...registeredIds].map(toPascal);
+    // Parser recognition is schema-driven: every registry id resolves as a chat name.
+    assert.deepEqual(
+      chatNames.filter((n) => !MOMO_OPENUI_COMPONENT_NAMES.has(n)),
+      [],
+    );
+    assert.deepEqual(
+      INTEL_CHAT_COMPONENTS.filter((n) => !MOMO_OPENUI_COMPONENT_NAMES.has(n)),
+      [],
+    );
+    // And every one of them is planner-available for any role.
+    const plan = planContextAwareUi({
+      latestUserText: "halo",
+      lookId: "rest",
+      workspaceView: "chat",
+      previousUserTexts: [],
+      previousAssistantTexts: [],
+      recentComponents: [],
+      availableData: createEmptyDataProfile(),
+    });
+    assert.deepEqual(
+      chatNames.filter((n) => !plan.allowedComponents.includes(n)),
+      [],
+    );
+  });
+
+  it("parses newly exposed Intelligence components through the full stream pipeline", () => {
+    const program = [
+      "```openui-lang",
+      "root = Stack([mg1, af1, ta1, ia1, kg1, pc1])",
+      'mg1 = MetricGroup("Platform KPIs", [{label: "Uptime", value: "99.95%", trend: "up", status: "good"}, {label: "Latency p50", value: 142, unit: "ms", trend: "down"}])',
+      'af1 = AlertFeed([{id: "a1", severity: "critical", title: "Checkout 5xx spike"}, {id: "a2", severity: "info", title: "Deploy selesai"}], "Alert Production")',
+      'ta1 = ThreatAssessment("high", [{name: "Token replay", likelihood: "medium", severity: "high", mitigation: "Rotasi token"}], "Postur Keamanan")',
+      'ia1 = ImpactAnalysis("Migrasi Skema", [{domain: "Checkout", severity: "high", effect: "Kontrak order berubah"}, {domain: "Search", severity: "low", effect: "Re-index ulang"}])',
+      'kg1 = KnowledgeGraph("Relasi Sistem", [{id: "web", label: "Web Client", type: "client"}, {id: "api", label: "API", type: "service"}], [{source: "web", target: "api", label: "REST"}])',
+      'pc1 = ProsCons("CDN Sendiri", ["Kontrol penuh", "Biaya tetap"], ["Kompleksitas ops", "Skala terbatas"], "Mulai dari CDN managed dulu")',
+      "```",
+    ].join("\n");
+
+    const blocks = parseMixedStreamToMistlineBlocks(program, { final: true });
+    const uiBlocks = blocks.filter((b) => b.kind === "ui");
+    assert.deepEqual(
+      uiBlocks.map((b) => b.name),
+      ["MetricGroup", "AlertFeed", "ThreatAssessment", "ImpactAnalysis", "KnowledgeGraph", "ProsCons"],
+    );
+    assert.equal(uiBlocks.every((b) => b.complete), true);
   });
 
   it("preserves all 6 blocks across streaming and final for ComparisonTable record criteria and VisualDossier null slot", () => {
@@ -1630,7 +1716,9 @@ describe("Momo register and profanity", () => {
     assert.doesNotMatch(chef, /kalau lo seduh manual/);
 
     assert.match(formatRegisterLock("rest", "apa itu inflasi"), /use your default: casual/);
-    assert.equal(formatRegisterLock("cook", "apa itu inflasi"), "");
+    assert.match(formatRegisterLock("cook", "apa itu inflasi"), /use your default: casual/);
+    assert.match(formatRegisterLock("cook", "apa itu inflasi"), /Profanity still waits/);
+    assert.doesNotMatch(formatRegisterLock("rest", "apa itu inflasi"), /Profanity still waits/);
     assert.match(formatRegisterLock("rest", "bro kok gini sih"), /user does not have to go first/);
     assert.match(formatRegisterLock("rest", "Mohon bantuan Anda"), /no swearing/);
     assert.match(formatRegisterLock("cook", "anjir gosong"), /up to their level/);

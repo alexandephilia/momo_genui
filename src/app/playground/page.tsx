@@ -676,7 +676,7 @@ function StudioComponentPreview({
 /* ═══════════════════ Main GenUI Studio Page ═══════════════════ */
 
 export default function PlaygroundPage() {
-  // Synchronously initialize all 182 Intelligence UI specs on mount
+  // Synchronously initialize all 168 Intelligence UI specs on mount
   const intelList = useMemo(() => {
     initializeIntelligenceUI();
     return getAllIntelComponents();

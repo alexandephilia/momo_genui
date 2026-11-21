@@ -456,7 +456,7 @@ export function registerDataExtra(): void {
       componentId: "weather_forecast",
       category: "data",
       secondaryCategories: ["interactive"],
-      description: "Current-conditions weather hero with a toggleable Day (hourly strip) / Week (7-day range bars) forecast view.",
+      description: "Current-conditions weather hero with a toggleable Day (day-part timeline + next hours) / Week (7-day range bars) forecast view.",
       dataSchema: `{ location?: string; subtitle?: string; current: { temp: number; unit?: string; cond?: string; icon?: string; hi?: number; lo?: number; feelsLike?: number; humidity?: number; windKph?: number; precipChance?: number; uvIndex?: number; updatedAt?: string }; hourly?: { time: string; temp: number; icon?: string; precipChance?: number }[]; daily?: { day: string; icon?: string; cond?: string; lo: number; hi: number; precipChance?: number }[] }`,
       complexity: "low",
       promptSummary: "Weather card: current conditions + hourly/daily toggle.",

@@ -43,6 +43,7 @@ export interface VisorDrawOptions {
   hover?: number;
   poke?: number;
   time?: number;
+  quality?: number;
   _speakEnv?: number;
 }
 
@@ -1841,6 +1842,7 @@ export function createVisorRenderer(): VisorRenderer {
   let prog: WebGLProgram | null = null, blitProg: WebGLProgram | null = null;
   let U: Record<string, WebGLUniformLocation | null> = {}, UB: Record<string, WebGLUniformLocation | null> = {};
   let tex: WebGLTexture | null = null, vao: WebGLVertexArrayObject | null = null, vbo: WebGLBuffer | null = null;
+  let texB: WebGLTexture | null = null, texIdx = 0;
   let fbo: WebGLFramebuffer | null = null, fboTex: WebGLTexture | null = null, fboW = 0, fboH = 0;
   let texReady = false;
 
@@ -1906,12 +1908,16 @@ export function createVisorRenderer(): VisorRenderer {
     };
 
     tex = gl.createTexture();
+    texB = gl.createTexture();
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, tex);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    for (const t of [tex, texB]) {
+      gl.bindTexture(gl.TEXTURE_2D, t);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, FW, FH, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    }
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
 
     fboTex = gl.createTexture();
@@ -1953,7 +1959,8 @@ export function createVisorRenderer(): VisorRenderer {
     const ss = !info.software
       ? (px <= 320 && px * 2 <= maxTex ? 2 : px <= 680 && Math.round(px * 1.5) <= maxTex ? 1.5 : 1)
       : 1;
-    const rpx = Math.min(maxTex, Math.round(px * ss));
+    const rq = Math.max(0.5, Math.min(1, opts.quality ?? 1));
+    const rpx = Math.min(maxTex, Math.max(8, Math.round(px * ss * rq)));
     const outfit = opts.outfit ?? 0;
     const deadMix = outfit === 4 ? 1.0 : Math.max(0, Math.min(1, opts.dead || 0));
     const T = opts.time || 0;
@@ -2092,7 +2099,7 @@ export function createVisorRenderer(): VisorRenderer {
 
     gl.bindVertexArray(vao);
 
-    if (ss > 1) {
+    if (rpx !== px) {
       if (fboW !== rpx || fboH !== rpx) {
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, fboTex);
@@ -2110,11 +2117,13 @@ export function createVisorRenderer(): VisorRenderer {
     gl.clear(gl.COLOR_BUFFER_BIT);
 
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, tex);
     if (faceDirty || !texReady) {
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, face.canvas);
-      gl.generateMipmap(gl.TEXTURE_2D);
+      texIdx = 1 - texIdx;
+      gl.bindTexture(gl.TEXTURE_2D, texIdx ? texB : tex);
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, face.canvas);
       texReady = true;
+    } else {
+      gl.bindTexture(gl.TEXTURE_2D, texIdx ? texB : tex);
     }
     gl.uniform1i(U.uFace, 0);
 
@@ -2157,7 +2166,7 @@ export function createVisorRenderer(): VisorRenderer {
 
     gl.drawArrays(gl.TRIANGLES, 0, 3);
 
-    if (ss > 1) {
+    if (rpx !== px) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       gl.viewport(0, 0, px, px);
       gl.clear(gl.COLOR_BUFFER_BIT);

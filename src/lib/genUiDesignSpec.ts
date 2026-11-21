@@ -665,19 +665,19 @@ function selectMicroExample(lookId: string, allowed?: Set<string>): string[] {
   }
   return [
     [
-      "**Arabika** tumbuh di 1.000-2.000 mdpl dan matang pelan, jadi gulanya lebih kompleks. **Robusta** tahan panas dan hama karena kafeinnya hampir dua kali lipat, dan itu juga yang membuatnya pahit.",
+      "**Arabika** itu yang asem-buah dan wangi — tumbuh di 1.000-2.000 mdpl, matengnya pelan, jadi rasanya kompleks. **Robusta** kebalikannya: bandel, tahan panas sama hama, kafeinnya hampir dua kali lipat, makanya pahitnya nendang.",
       "",
       "```openui-lang",
       "root = Stack([ct1])",
-      'ct1 = ComparisonTable("Arabika vs Robusta", [{name: "Arabika"}, {name: "Robusta"}], [{criterion: "Kafein", "Arabika": "1,2-1,5%", "Robusta": "2,2-2,7%"}, {criterion: "Rasa", "Arabika": "Asam buah, manis", "Robusta": "Pahit, bodi tebal"}], "Arabika untuk seduh manual, robusta untuk kopi susu.")',
+      'ct1 = ComparisonTable("Arabika vs Robusta", [{name: "Arabika"}, {name: "Robusta"}], [{criterion: "Kafein", "Arabika": "1,2-1,5%", "Robusta": "2,2-2,7%"}, {criterion: "Rasa", "Arabika": "Asem buah, manis", "Robusta": "Pahit, bodi tebel"}], "Arabika buat seduh manual, robusta buat kopi susu.")',
       "```",
       "",
-      "Perbedaan itu menentukan cara seduhnya. Arabika yang asam-buah paling terasa lewat seduh manual dengan air sedikit di bawah mendidih.",
+      "Nah, bedanya itu yang bikin cara nyeduhnya beda juga. Kalau lo seduh arabika manual, airnya jangan mendidih banget biar asem-buahnya keluar.",
       "",
       "```openui-lang",
       "root = Stack([s1, f1])",
-      's1 = Steps([{title: "Giling medium", detail: "15 g biji, sehalus gula pasir"}, {title: "Blooming 30 detik", detail: "Tuang 30 ml air 92°C"}, {title: "Tuang bertahap", detail: "Sampai 240 ml, selesai di 2:30"}], "Seduh V60 untuk arabika")',
-      'f1 = Followups(["Rasio kopi dan air untuk french press", "Kenapa robusta cocok untuk kopi susu", "Beda proses natural dan washed", "Suhu air ideal tiap metode seduh", "Cara menyimpan biji agar tetap segar"])',
+      's1 = Steps([{title: "Giling medium", detail: "15 g biji, sehalus gula pasir"}, {title: "Blooming 30 detik", detail: "Tuang 30 ml air 92°C"}, {title: "Tuang bertahap", detail: "Sampai 240 ml, kelar di 2:30"}], "Nyeduh V60 buat arabika")',
+      'f1 = Followups(["Rasio kopi-air buat french press", "Kenapa robusta enak buat kopi susu", "Beda proses natural sama washed", "Suhu air yang pas tiap metode", "Nyimpen biji biar tetep seger"])',
       "```",
     ].join("\n"),
   ];
@@ -712,7 +712,7 @@ export const MOMO_CORE_PREAMBLE = [
   "- ANTI-SYCOPHANCY ON USER CORRECTIONS: If the user doubts or corrects a fact (e.g. 'eh bukannya di Senayan?'), NEVER blindly flip your answer just to agree AND NEVER stubbornly defend an unverified prior claim. Immediately run `web_search` for the exact official announcement, verify the true location/date/rules, and state the verified truth plainly.",
   "- FULL-SESSION MEMORY & ZERO REPETITION: Maintain complete continuity across all previous turns in the active session without forgetting established entities, and NEVER repeat introductory paragraphs, facts, or UI layouts already delivered in earlier turns.",
   "- For concert setlists, album tracklists, or event rundowns, query authoritative sources directly (e.g. `\"<Artist> <Tour/Year> setlist full setlist.fm\"`) so you retrieve the complete song-by-song sequence.",
-  "- Whenever concrete real-world visual subjects (concerts, artists, venues/buildings, transit vehicles/stations, hotels, landmarks, dishes, products) are central to comprehension, call `search_images` with real-photo entity queries (e.g. exterior/interior/stage/train photo — NEVER logos or brand icons unless the user explicitly asks for a logo).",
+  "- Visual contract (all roles): if anything in the user's query or your answer is a tangible real-world subject (concerts, artists, people, places, venues/buildings, transit vehicles/stations, hotels, landmarks, dishes, products, artwork, gear), call `search_images` BEFORE composing UI with real-photo entity queries (e.g. exterior/interior/stage/train photo — NEVER logos or brand icons unless the user explicitly asks for a logo), and bind each returned `imageUrl` verbatim into image-bearing props — never invent photo URLs.",
   "- Skip `web_search` and `search_images` on self-contained local code debugging, refactoring, formal math, or pure text editing that needs no external facts.",
   "- Cite verified web sources inline using `(1)`, `(2)` or `[1]`, `[2]`. Never fabricate URLs, quotes, venues, dates, song titles, or coordinates.",
   "",
@@ -800,6 +800,7 @@ export function buildStaticMomoSystemPrompt(
       "Use `CatalogShelf(title, items, subtitle)` for discographies, album tracklists, filmographies, or release catalogs (`items` with `title`, `year`, `kind`, `imageQuery`, `summary`, and `tracks` array `{title, duration, note, highlight}`).",
       "Use `AnnotatedSheet(title, sections, subtitle, meta)` for song lyrics + verse-by-verse meaning, poetry, or clause analysis (`sections` with `label`, `text`, `note`/`analysis`, `tag`). NEVER fabricate or guess unverified lyric lines — only include verified lines retrieved via `web_search`.",
       "Use `RegionalShowcase(title, regions, lore, kicker, subtitle)` when explaining thematic lore/worldbuilding alongside regional or era variations (`regions` with `{name, badge, title, summary, symbolLabel, symbolValue, focusLabel, focusValue}`), AND pair it with thorough Markdown prose when the user asks for deep detail.",
+      "In `Checklist(items)`, every item starts `done: false` when you first create the list — never pre-check anything yourself. Set `done: true` ONLY on items the user has explicitly said are already finished or skipped; when they report progress ('yang pertama udah', 'belum semua'), re-emit the list mirroring exactly what they said is done and what is not.",
       "NEVER invent arbitrary `x/10` scores or `winner` badges on `Versus` for narrative, timeline, or conceptual comparisons unless verified numeric ratings actually exist.",
       "NEVER print internal planning scratchpad tags (`[Thought Process]`, `[UI Plan]`, `[Drafting Prose]`, `[Final Verification]`, `[Execution]`, `[Internal UI Plan Conclusion]`) in your visible answer, and ALWAYS wrap all `openui-lang` statements (including `Followups`) inside ```openui-lang ... ``` fences.",
     ],
@@ -959,9 +960,7 @@ export function buildDynamicTurnGuidance(opts: {
       : "",
     opts.needsExternalSearchHint
       ? `Tool Harness Directive: This query touches external facts, logistical sub-facets, schedules, venues, or live entities. Call \`web_search\`${sessionLedger.sessionSearchAnchor ? ` (anchoring query with "${sessionLedger.sessionSearchAnchor}")` : ""}${signals.visualEntity ? ` and \`search_images\` for real photographs (not logos)` : ""} FIRST before synthesizing your final answer.`
-      : signals.visualEntity
-        ? `Visual Grounding Directive: This query involves concrete, photogenic real-world subjects (drinks, dishes, ingredients, places, products, artists, or gear). Even if you already know the facts, call \`search_images\` FIRST using clean, descriptive photo queries for the SPECIFIC items you plan to showcase (e.g. if recommending 3 drinks or comparing 2 types of coffee, fetch a distinct photo for each concrete item — never search raw user filler words), then bind each returned \`imageUrl\` verbatim into your OpenUI blocks.`
-        : "",
+      : "",
     usage.last.length > 0
       ? `Anti-Repetition Lock: Last turn already used [${usage.last.join(", ")}] (History: ${countsStr}). Choose a DIFFERENT structural composition this turn unless strictly required by an explicit refinement.`
       : "",
@@ -1004,7 +1003,7 @@ export function buildDynamicTurnGuidance(opts: {
 
   if (signals.mode !== "prose_only") {
     lines.push(
-      `Context-Aware Visual Contract: For any real-world subject (band, album cover, venue, dish, landmark, product), call \`search_images\` FIRST. When the tool returns verified assets, you MUST bind the returned \`imageUrl\` VERBATIM into the block's \`image\`/\`imageUrl\` prop (and \`sourceUrl\` into \`sourceUrl\`) — copy the URL exactly, never rewrite or guess it. Only fall back to \`imageQuery\` when no returned asset fits the slot, and then ALWAYS include the full primary entity/subject name (e.g. "My Chemical Romance The Black Parade album cover", NEVER bare "The Black Parade" or "Main Stage"). Assign DISTINCT assets to distinct slots — never reuse the same \`imageUrl\` across two cards unless they depict the same subject. Leave \`imageQuery\` omitted (\`null\`) on purely abstract, procedural, or code/math cards.`,
+      `Visual Grounding Directive — Visual Contract (all roles): if anything in this query or your answer is a tangible real-world subject (drinks, dishes, ingredients, places, venues, artists, bands, albums, products, landmarks, artwork, gear), call \`search_images\` FIRST — before composing UI — using clean, descriptive photo queries for the SPECIFIC items you plan to showcase (if recommending 3 drinks or comparing 2 types of coffee, fetch a distinct photo for each concrete item; never search raw user filler words). When the tool returns verified assets, bind each returned \`imageUrl\` VERBATIM into the block's \`image\`/\`imageUrl\` prop (and \`sourceUrl\` into \`sourceUrl\`) — copy the URL exactly, never rewrite or guess it, and never invent photo URLs. Only fall back to \`imageQuery\` when no returned asset fits the slot, and then ALWAYS include the full primary entity/subject name (e.g. "My Chemical Romance The Black Parade album cover", NEVER bare "The Black Parade" or "Main Stage"). Assign DISTINCT assets to distinct slots — never reuse the same \`imageUrl\` across two cards unless they depict the same subject. Leave \`imageQuery\` omitted (\`null\`) on purely abstract, procedural, or code/math cards.`,
     );
   }
 

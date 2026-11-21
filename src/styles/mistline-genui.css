@@ -577,6 +577,25 @@
   overflow: hidden;
 }
 
+/* In a photo-carrying set, a card whose photo failed keeps this tile in the media
+   slot — same box and ratio, a centered icon instead of a collapsed card. */
+.gu-place > .gu-place__media--blank {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 72px;
+  color: var(--gu-ink-4);
+  background:
+    radial-gradient(130% 95% at 50% 0%, color-mix(in srgb, var(--gu-accent) 8%, transparent), transparent 74%),
+    var(--gu-child-bg);
+  border: var(--gu-border-w, 1px) dashed var(--gu-child-border) !important;
+  box-shadow: none;
+}
+
+.gu-place__media--blank > svg {
+  opacity: 0.55;
+}
+
 .gu-place__glass-tag {
   position: absolute;
   top: 6px;
@@ -1160,10 +1179,6 @@ html[data-theme="dark"] .gu.gu-steps > ol {
   align-items: start;
   gap: 12px;
   padding: 11px 16px;
-}
-
-.gu-steps li:hover {
-  background: var(--gu-child-bg);
 }
 
 .gu-steps li:not(:last-child)::after {
@@ -8510,20 +8525,51 @@ html[data-theme="dark"] .gu-chart__readout {
 
 .gu-vs__pick-link {
   margin-top: auto;
-  padding: 6px 0 1px;
-  align-self: flex-start;
-  background: none;
-  border: 0;
-  border-bottom: 1px solid var(--gu-line-2);
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 12px;
+  border-radius: var(--gu-radius-well);
+  border: var(--gu-border-w, 1px) solid var(--gu-child-border);
+  background: var(--gu-child-bg);
+  box-shadow: var(--gu-child-shadow);
   color: var(--gu-ink);
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 12.5px;
+  font-weight: 600;
+  text-align: left;
   cursor: pointer;
+}
+
+.gu-vs__pick-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gu-vs__pick-icon {
+  flex-shrink: 0;
+  color: var(--gu-ink-3);
+}
+
+.gu-vs__pick-link:hover {
+  border-color: color-mix(in srgb, var(--gu-accent, #ef8c66) 28%, var(--gu-child-border));
+}
+
+.gu-vs__pick-link:hover .gu-vs__pick-icon {
+  color: var(--gu-accent, #ef8c66);
 }
 
 .gu-vs__pick-link.is-active {
   color: var(--gu-accent);
-  border-bottom-color: var(--gu-accent);
+  border-color: color-mix(in srgb, var(--gu-accent, #ef8c66) 26%, var(--gu-child-border));
+  background: color-mix(in srgb, var(--gu-accent, #ef8c66) 6%, var(--gu-child-bg));
+}
+
+.gu-vs__pick-link.is-active .gu-vs__pick-icon {
+  color: var(--gu-accent);
 }
 
 .gu-vs__verdict-wrap {
@@ -10788,13 +10834,52 @@ html .gu-transit__card {
 
 .gu-recipe__steps {
   margin: 0;
-  padding-left: 18px;
+  padding: 0;
+  list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  font-size: 13px;
-  line-height: 1.5;
+  gap: 2px;
+}
+
+.gu-recipe__step {
+  position: relative;
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  padding: 7px 0;
+}
+
+.gu-recipe__step:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  left: 12.5px;
+  top: 34px;
+  bottom: -5px;
+  width: 1px;
+  background: var(--gu-line);
+}
+
+.gu-recipe__step-num {
+  display: grid;
+  place-items: center;
+  width: 25px;
+  height: 25px;
+  border-radius: 8px;
+  background: var(--gu-well);
+  box-shadow: inset 0 0 0 1px var(--gu-line);
+  font-size: 11.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
   color: var(--gu-ink-2);
+}
+
+.gu-recipe__step-body {
+  padding-top: 3px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--gu-ink-2);
+  min-width: 0;
 }
 
 /* MoodboardMosaic */

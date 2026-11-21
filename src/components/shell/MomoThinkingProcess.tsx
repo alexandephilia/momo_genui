@@ -1023,7 +1023,7 @@ export const MomoThinkingProcess: React.FC<MomoThinkingProcessProps> = ({
                 />
               </i>
 
-              {(reasoningBadge || (msg.reasoningTokens ?? 0) > 0 || (msg.cachedTokens ?? 0) > 0 || (sourceCount > 0)) && (
+              {(reasoningBadge || (msg.reasoningTokens ?? 0) > 0 || (sourceCount > 0)) && (
                 <div className="momo-td-meta-pills">
                   {reasoningBadge && (
                     <span className="momo-td-meta-pill">{reasoningBadge}</span>
@@ -1036,11 +1036,6 @@ export const MomoThinkingProcess: React.FC<MomoThinkingProcessProps> = ({
                   {(msg.reasoningTokens ?? 0) > 0 && (
                     <span className="momo-td-meta-pill">
                       Penalaran: {formatTokensId(msg.reasoningTokens!)} tok
-                    </span>
-                  )}
-                  {(msg.cachedTokens ?? 0) > 0 && (
-                    <span className="momo-td-meta-pill is-accent">
-                      Konteks sesi aktif
                     </span>
                   )}
                 </div>

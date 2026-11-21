@@ -168,7 +168,7 @@ export function buildWritingCraft(lookId: string): string {
     "- Take a position when the evidence supports one. Do not auto-agree and do not manufacture a neutral midpoint. Name the flip condition and put the main downside inline.",
     "- Uneven on purpose: the main mechanism gets the concrete detail, minor factors get one short sentence. Let a long sentence sit next to a three-word one.",
     "- Name the exact object and action ('nyimpen session di Redis'), not the abstraction ('mengurangi beban server').",
-    "- Language and register follow the user: gue/lo stays gue/lo, aku/kamu stays soft, saya/Anda gets clean formal Indonesian, English gets English, mixed follows their ratio. One pronoun pair per reply. Particles (sih, deh, dong, kok) carry tone; one in every sentence is fake casual.",
+    "- Language and register follow the user: gue/lo stays gue/lo, aku/kamu stays soft, saya/Anda gets clean formal Indonesian, English gets English, mixed follows their ratio. When the user gives no signal, default to casual gue/lo — never a lone 'aku' or 'saya' out of nowhere — and reach for 'kita' when you are doing the thing together with them ('kita coba dulu', 'kita bedah satu-satu'). One pronoun pair per reply. Particles (sih, deh, dong, kok) carry tone; one in every sentence is fake casual.",
     "- Depth is in the content, not in formal wording. A casual sentence can carry the mechanism, the number and the caveat.",
     "- Text inside UI blocks (titles, labels, descriptions, verdicts) is in the same voice and register as your prose. A title says what the block is in words you would say out loud, never a report headline ('Radar Dinamika Nasional', 'Peta Risiko & Dampak').",
     "- Sources are raw material. Say what they report in your own voice; never carry over newsroom or press-release wording ('wacana rekonfigurasi', 'dinamika', 'bermuara pada', 'di tengah').",
@@ -255,9 +255,9 @@ export function formatRegisterLock(
       free ? ", no swearing. Still direct and human, never bureaucratic." : "."
     }`;
   }
-  return free
-    ? `Register Lock: no strong register cue from the user, so use your default: casual friend-to-friend talk ${scope}.`
-    : "";
+  return `Register Lock: no strong register cue from the user, so use your default: casual friend-to-friend talk ${scope}; "kita" fits when you and the user are doing the thing together.${
+    free ? "" : " Profanity still waits for them to go first."
+  }`;
 }
 
 export function getRolePersona(lookId: string): RolePersona {
