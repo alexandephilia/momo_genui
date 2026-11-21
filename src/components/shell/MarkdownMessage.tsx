@@ -22,6 +22,12 @@ import {
 } from "@/lib/citationPlacement";
 import { dedupeConsecutiveParagraphs, replaceProseEmDashes } from "@/lib/genUiStreamParser";
 import { renderHandwrittenMath, scanInlineMathToken } from "@/lib/inlineMath";
+import {
+  MD_FIG_MAX_IMAGES,
+  parseFigureLine,
+  type MdFigureAlign,
+  type MdFigureKind,
+} from "@/lib/figureLine";
 import { sourceHost, sourceTime } from "@/lib/sourceMeta";
 import type { SourceItem } from "@/types/momo";
 
@@ -48,33 +54,15 @@ type MdBlock =
       alignments: Array<"left" | "center" | "right">;
       rows: string[][];
     }
-  | { type: "figure"; alt: string; url: string; align: MdFigureAlign }
+  | {
+      type: "figure";
+      alt: string;
+      url: string;
+      align: MdFigureAlign;
+      kind: MdFigureKind;
+      images: { alt: string; url: string }[];
+    }
   | { type: "paragraph"; lines: string[] };
-
-type MdFigureAlign = "left" | "right" | "full";
-
-/**
- * A photo on its own line: `![Title: description](url "left")`. With a side it is a small
- * indented inset between paragraphs, thumbnail on that side and the description beside it;
- * without one the photo is a full-width block. A line that has started as an
- * image but is still streaming parses with an empty url and renders as a placeholder.
- */
-export function parseFigureLine(line: string): { alt: string; url: string; align: MdFigureAlign } | null {
-  const trimmed = line.trim();
-  if (!trimmed.startsWith("![")) return null;
-  const done = /^!\[([^\]]*)\]\(\s*(\S+?)(?:\s+["']([^"']*)["'])?\s*\)$/.exec(trimmed);
-  if (done) {
-    const side = (done[3] ?? "").toLowerCase();
-    const align: MdFigureAlign = /\b(?:left|kiri)\b/.test(side)
-      ? "left"
-      : /\b(?:right|kanan)\b/.test(side)
-        ? "right"
-        : "full";
-    return { alt: done[1].trim(), url: done[2], align };
-  }
-  const partial = /^!\[([^\]]*)(?:\]\([^)]*)?$/.exec(trimmed);
-  return partial ? { alt: partial[1].trim(), url: "", align: "full" } : null;
-}
 
 function isSafeHref(rawUrl: string): string | null {
   const trimmed = rawUrl.trim();
@@ -293,10 +281,22 @@ function parseMarkdownBlocks(raw: string, inQuote = false): MdBlock[] {
       continue;
     }
 
-    // 7. Photo on its own line
+    // 7. Photo on its own line — consecutive photo lines merge into one figure grid
     const figure = parseFigureLine(line);
     if (figure) {
-      blocks.push({ type: "figure", ...figure });
+      const images = [{ alt: figure.alt, url: figure.url }];
+      while (
+        images.length < MD_FIG_MAX_IMAGES &&
+        figure.align === "full" &&
+        i + 1 < lines.length &&
+        lines[i + 1].trim() !== ""
+      ) {
+        const next = parseFigureLine(lines[i + 1]);
+        if (!next || next.kind !== "plain" || next.align !== "full") break;
+        images.push({ alt: next.alt, url: next.url });
+        i += 1;
+      }
+      blocks.push({ type: "figure", ...figure, images });
       i += 1;
       continue;
     }
@@ -1087,8 +1087,18 @@ function renderBlock(
 
     case "figure":
       // No url means the line was cut off: a placeholder while streaming, nothing once final.
-      if (!block.url && !isStreaming) return null;
-      return <MarkdownFigure key={key} alt={block.alt} url={block.url} align={block.align} sources={sources} />;
+      if (!block.url && !block.images.some((im) => im.url) && !isStreaming) return null;
+      return (
+        <MarkdownFigure
+          key={key}
+          alt={block.alt}
+          url={block.url}
+          images={block.images}
+          align={block.align}
+          kind={block.kind}
+          sources={sources}
+        />
+      );
 
     case "code":
       return (
@@ -1253,49 +1263,120 @@ function matchFigureSource(url: string, title: string, sources: SourceItem[] | u
 const MarkdownFigure = memo<{
   alt: string;
   url: string;
+  images?: { alt: string; url: string }[];
   align: MdFigureAlign;
+  kind?: MdFigureKind;
   sources?: SourceItem[];
 }>(
-  function MarkdownFigure({ alt, url, align, sources }) {
-    const [failed, setFailed] = useState(false);
-    const onFailed = useCallback(() => setFailed(true), []);
-    if (failed) return null;
-    // "Title: description" (a dash works too): what follows the first one is the description.
-    const cut = /\s[—–-]\s|:\s/.exec(alt);
-    const title = cut ? alt.slice(0, cut.index).trim() : alt;
-    const desc = cut ? alt.slice(cut.index + cut[0].length).trim() : "";
-    const source = matchFigureSource(url, title, sources);
+  function MarkdownFigure({ alt, url, images, align, kind = "plain", sources }) {
+    const [failed, setFailed] = useState<Set<number>>(new Set());
+    const onFailed = useCallback((i: number) => {
+      setFailed((prev) => {
+        if (prev.has(i)) return prev;
+        const next = new Set(prev);
+        next.add(i);
+        return next;
+      });
+    }, []);
+    // Consecutive bare photo lines arrive as one block: a photo grid capped at four.
+    const list = images?.length ? images : [{ alt, url }];
+    const visible = list
+      .map((im, i) => ({ ...im, i }))
+      .filter((im) => !failed.has(im.i));
+    if (!visible.length) return null;
+
+    // "Title: description | fact | fact" — `|` segments become fact chips, or
+    // timeline entries when the kind is kronologi.
+    const [head, ...parts] = list[0].alt.split("|");
+    const cut = /\s[—–-]\s|:\s/.exec(head);
+    const title = (cut ? head.slice(0, cut.index) : head).trim();
+    const desc = cut ? head.slice(cut.index + cut[0].length).trim() : "";
+    const entries = parts.map((p) => p.trim()).filter(Boolean);
+    const facts = kind === "kronologi" ? [] : entries.slice(0, 4);
+    const chrono = kind === "kronologi" ? entries.slice(0, 5) : [];
+
+    const photoOf = (im: { alt: string; url: string; i: number }) => {
+      if (!im.url) {
+        return <span className="ph is-searching" style={{ aspectRatio: "4/3" }} aria-busy="true" />;
+      }
+      const imTitle = im.alt.split("|")[0].split(/\s[—–-]\s|:\s/)[0].trim();
+      return (
+        <MistlinePhoto
+          src={im.url}
+          fallbackQuery={imTitle || title || undefined}
+          seed={imTitle || title}
+          icon="image"
+          ratio="4/3"
+          onFailed={() => onFailed(im.i)}
+        />
+      );
+    };
+
+    const linkedPhoto = (im: { alt: string; url: string; i: number }) => {
+      const src = matchFigureSource(im.url, title, sources);
+      const node = photoOf(im);
+      return src ? (
+        <a
+          key={im.i}
+          className="md-fig__imglink"
+          href={src.url}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {node}
+        </a>
+      ) : (
+        <React.Fragment key={im.i}>{node}</React.Fragment>
+      );
+    };
+
+    const source = matchFigureSource(visible[0].url, title, sources);
     const host = source ? source.domain || sourceHost(source.url) : "";
-    const photo = url ? (
-      <MistlinePhoto
-        src={url}
-        fallbackQuery={title || undefined}
-        seed={title}
-        icon="image"
-        ratio="4/3"
-        onFailed={onFailed}
-      />
-    ) : (
-      <span className="ph is-searching" style={{ aspectRatio: "4/3" }} aria-busy="true" />
-    );
+    const figDesc =
+      desc ||
+      (source?.snippet || source?.description || "").trim().slice(0, 280);
+    const isGrid = visible.length > 1;
+    const cls = [
+      "md-fig",
+      `is-${isGrid ? "full" : align}`,
+      kind !== "plain" ? `is-${kind}` : "",
+      isGrid ? `is-grid is-n${Math.min(visible.length, 4)}` : "",
+      !visible[0].url && !isGrid ? "is-pending" : "",
+      source ? "is-linked" : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
+
     return (
-      <figure className={`md-fig is-${align}${url ? "" : " is-pending"}${source ? " is-linked" : ""}`}>
-        {source ? (
-          <a className="md-fig__imglink" href={source.url} target="_blank" rel="noopener noreferrer">
-            {photo}
-          </a>
+      <figure className={cls}>
+        {isGrid ? (
+          <div className={`md-fig__grid is-n${Math.min(visible.length, 4)}`}>
+            {visible.map((im) => linkedPhoto(im))}
+          </div>
         ) : (
-          photo
+          linkedPhoto(visible[0])
         )}
-        {alt && (
+        {(title || chrono.length > 0) && (
           <figcaption className="md-fig__cap">
-            {desc ? (
-              <>
-                <strong className="md-fig__title">{title}</strong>
-                <span className="md-fig__desc">{desc}</span>
-              </>
-            ) : (
-              title
+            <strong className="md-fig__title">{title}</strong>
+            {figDesc && <span className="md-fig__desc">{figDesc}</span>}
+            {facts.length > 0 && (
+              <span className="md-fig__facts">
+                {facts.map((f) => (
+                  <span key={f} className="md-fig__fact">
+                    {f}
+                  </span>
+                ))}
+              </span>
+            )}
+            {chrono.length > 0 && (
+              <span className="md-fig__chrono">
+                {chrono.map((e) => (
+                  <span key={e} className="md-fig__chrono-item">
+                    {e}
+                  </span>
+                ))}
+              </span>
             )}
             {source && (
               <a

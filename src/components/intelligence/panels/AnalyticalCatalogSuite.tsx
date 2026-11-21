@@ -173,13 +173,13 @@ export function TradeoffMatrix({ data, state, streaming, sources }: IntelBasePro
               {benefits.length > 0 && (
                 <>
                   <div className="intel-col-label intel-text-green" style={{ marginTop: 8 }}>Benefits</div>
-                  <ul className="intel-bullet-list">{benefits.map((b, idx) => <li key={idx}>{b}</li>)}</ul>
+                  <ul className="intel-bullet-list intel-bullet-list--pos">{benefits.map((b, idx) => <li key={idx}>{b}</li>)}</ul>
                 </>
               )}
               {costs.length > 0 && (
                 <>
                   <div className="intel-col-label intel-text-red" style={{ marginTop: 8 }}>Sacrifices / Costs</div>
-                  <ul className="intel-bullet-list">{costs.map((c, idx) => <li key={idx}>{c}</li>)}</ul>
+                  <ul className="intel-bullet-list intel-bullet-list--neg">{costs.map((c, idx) => <li key={idx}>{c}</li>)}</ul>
                 </>
               )}
             </div>

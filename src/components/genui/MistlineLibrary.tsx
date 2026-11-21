@@ -91,6 +91,11 @@ import type {
   WorkspaceBoardItem,
 } from "@/types/momo";
 import { FullscreenPortalModal } from "./FullscreenPortalModal";
+import {
+  BoardStickerOverlay,
+  boardTitleKey,
+  useBoardItemStates,
+} from "./BoardSticker";
 import { MermaidRenderer } from "./MermaidRenderer";
 import { hashString, inferContextualIcon, MistlineIcon } from "./MistlineIcons";
 import { parseMermaidToGraph } from "@/lib/intelligence/mermaidToGraph";
@@ -931,6 +936,10 @@ function CardsComp({
     }
   };
 
+  const boardStickers = useBoardItemStates();
+  const stickerStateFor = (it: Record<string, unknown>) =>
+    boardStickers.get(boardTitleKey(str(it.title)));
+
   const renderPinBtn = (it: Record<string, unknown>, resolvedUrl?: string) => {
     if (!onTogglePinItem) return null;
     const title = str(it.title);
@@ -1088,15 +1097,17 @@ function CardsComp({
               (str(it.image) || str(it.imageQuery) || resolved?.url) &&
                 !failedMedia[title],
             );
+            const sticker = stickerStateFor(it);
             return (
               <motion.li
-                className={`gu-rows__row${live ? " is-interactive" : ""}`}
+                className={`gu-rows__row${live ? " is-interactive" : ""}${sticker?.done ? " is-done" : ""}`}
                 key={`row-${i}`}
                 whileHover={live ? MH.row : undefined}
                 whileTap={live ? MH.tap : undefined}
                 transition={MH.spring}
                 onClick={() => triggerCardPrompt(it)}
               >
+                <BoardStickerOverlay state={sticker} />
                 {hasPhoto ? (
                   <MistlinePhoto
                     src={str(it.image) || undefined}
@@ -1196,15 +1207,17 @@ function CardsComp({
               (explicitImg || queryText || resolved?.url) && !failedMedia[title],
             );
             const showBlankTile = !hasMedia && mediaSet;
+            const sticker = stickerStateFor(it);
             return (
               <motion.figure
-                className={`gu-strip__item${live ? " is-interactive" : ""}`}
+                className={`gu-strip__item${live ? " is-interactive" : ""}${sticker?.done ? " is-done" : ""}`}
                 whileHover={live ? MH.card : undefined}
                 whileTap={live ? MH.press : undefined}
                 transition={MH.spring}
                 key={`strip-${i}`}
                 onClick={() => triggerCardPrompt(it)}
               >
+                <BoardStickerOverlay state={sticker} />
                 {hasMedia ? (
                   <div className="gu-place__media">
                     <MistlinePhoto
@@ -1371,15 +1384,17 @@ function CardsComp({
     // tinted icon tile — uniform anatomy instead of a collapsed, shorter sibling.
     const showBlankTile = !hasMedia && mediaSet;
 
+    const sticker = stickerStateFor(it);
     return (
       <motion.li
-        className={`gu-place${hero ? " is-hero" : ""}${secondary ? " is-secondary" : ""}${live ? " is-interactive" : ""}`}
+        className={`gu-place${hero ? " is-hero" : ""}${secondary ? " is-secondary" : ""}${live ? " is-interactive" : ""}${sticker?.done ? " is-done" : ""}`}
         whileHover={live ? MH.card : undefined}
         whileTap={live ? MH.press : undefined}
         transition={MH.spring}
         key={`place-${i}`}
         onClick={() => triggerCardPrompt(it)}
       >
+        <BoardStickerOverlay state={sticker} />
         {hasMedia ? (
           <div className="gu-place__media">
             <MistlinePhoto

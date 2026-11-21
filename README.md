@@ -65,6 +65,35 @@ An interactive AI workspace built on **Next.js 16**, **React 19**, **OpenUI**, a
 
 ---
 
+## GenUI Studio (`/playground`)
+
+A built-in design workbench that mounts every registered component against live sample data — no chat session needed. Run `npm run dev` and open `http://127.0.0.1:4173/playground`.
+
+- **Full searchable catalog** (`201` entries): `169` Intelligence panels + `32` Classic Mistline blocks, grouped by family in the left rail.
+- **State & variant inspection**: every component renders across `ready`, `loading`, `streaming`, `empty`, and `error` states and all four visual variants — `Default`, `Editorial`, `Split`, `Minimal` — in Porcelain Light and Obsidian Dark themes, with a 4-up side-by-side **Compare** mode.
+- **DialKit live controls**: tune accent color, card background, border radius, padding, gap, font scale, container height, and compact mode in real time; edit the sample JSON in the parameter editor, copy it back out, save named versions, and export the result.
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/07-playground-intel-panel.jpg" alt="Playground Studio inspecting impact_analysis" width="100%" />
+      <br />
+      <strong>Intelligence Panels</strong>
+      <br />
+      Tier-grouped <code>impact_analysis</code> with severity distribution bar and etched separators, inspected live under DialKit controls (accent, radius, padding, font scale).
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/08-playground-classic-chart.jpg" alt="Playground Studio inspecting bar_chart" width="100%" />
+      <br />
+      <strong>Classic &amp; DataViz Blocks</strong>
+      <br />
+      Interactive <code>bar_chart</code> with rank labels, pinned-bar detail strip, and editable series props in the docked parameter panel.
+    </td>
+  </tr>
+</table>
+
+---
+
 ## Core Capabilities
 
 - **Three Synchronized Workspaces**

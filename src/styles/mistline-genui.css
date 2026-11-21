@@ -5910,6 +5910,61 @@ border-color: rgba(239 140 102 / 0.22);
   color: #ffffff;
 }
 
+/* Die-cut board sticker overlapping a card's top-left corner (tilted vinyl) */
+.gu-rows__row,
+.gu-strip__item,
+.gu-place {
+  position: relative;
+}
+
+.gu-card-sticker {
+  --sticker-idle-fill: #c9c6be;
+  --sticker-vinyl: #fffdf8;
+  position: absolute;
+  top: 3px;
+  left: 2px;
+  z-index: 5;
+  display: inline-flex;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 3px rgba(15, 16, 20, 0.32));
+}
+
+.gu-card-sticker .momo-board-sticker-svg {
+  width: 24px;
+  height: 24px;
+}
+
+html[data-theme="dark"] .gu-card-sticker {
+  --sticker-idle-fill: #4f5463;
+  --sticker-vinyl: #2a2d36;
+}
+
+/* Board "done" state mirrored on chat/explore cards */
+.gu-rows__row.is-done,
+.gu-strip__item.is-done,
+.gu-place.is-done {
+  opacity: 0.66;
+}
+
+.gu-rows__row.is-done .gu-rows__name,
+.gu-strip__item.is-done .gu-strip__name,
+.gu-place.is-done .gu-place__name {
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+  text-decoration-color: var(--gu-ink-4);
+}
+
+.sp-mosaic__item.is-done {
+  opacity: 0.66;
+}
+
+.sp-mosaic__item.is-done .sp-mosaic__name,
+.sp-mosaic__item.is-done figcaption {
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+  text-decoration-color: var(--gu-ink-4);
+}
+
 .gu-pill-btn {
   display: inline-flex;
   align-items: center;
@@ -7543,6 +7598,7 @@ html[data-theme="dark"] .gu-chart__readout {
    EXPLORE INTERACTIVE DETAIL SHEET (.sp-detail-sheet) — OpenUI Inspired
    ========================================================================= */
 .sp-detail-sheet {
+  position: relative;
   --gu-surface: var(--card, #ffffff);
   --gu-raised: var(--card, #ffffff);
   --gu-sunken: color-mix(in srgb, var(--ink, #141416) 6%, var(--bg, #ffffff));
@@ -12393,6 +12449,7 @@ html[data-theme="dark"] .gu-bento__nav-icon {
   border-radius: 0;
   min-width: 0;
   max-width: 100%;
+  min-height: clamp(200px, 36cqw, 300px);
   overflow: hidden;
   background: transparent;
   border: 0;

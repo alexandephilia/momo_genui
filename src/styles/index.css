@@ -514,6 +514,12 @@
     color: var(--ink);
   }
 
+  .md-fig__desc {
+    display: block;
+    margin-top: 3px;
+    color: var(--mute);
+  }
+
   /* When the photo traces back to a turn source it links out; the caption gains a
      source meta row (host · date ↗) in the NewsFeed register. */
   .md-fig__imglink {
@@ -570,6 +576,109 @@
   .md-fig.is-full .md-fig__meta {
     margin-top: 4px;
   }
+
+  /* Photo grid: consecutive bare image lines collapse into one figure, capped at four. */
+  .md-fig.is-grid {
+    max-width: 560px;
+  }
+
+  .md-fig__grid {
+    display: grid;
+    gap: 6px;
+  }
+
+  .md-fig__grid.is-n2,
+  .md-fig__grid.is-n4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .md-fig__grid.is-n3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .md-fig__grid .gu-place__media,
+  .md-fig__grid .ph,
+  .md-fig__grid .md-fig__imglink {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .md-fig__grid .gu-place__media {
+    margin: 0;
+    border-radius: var(--gu-radius-well, 10px);
+  }
+
+  .md-fig.is-grid .md-fig__cap {
+    margin-top: 8px;
+    font-size: 13px;
+    line-height: 19px;
+  }
+
+  /* Fact chips: `|` segments after the title/description become small mono pills. */
+  .md-fig__facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 2px;
+  }
+
+  .md-fig__fact {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    line-height: 14px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--mute);
+    border: 1px solid var(--gu-line, var(--line));
+    border-radius: 99px;
+    padding: 2px 8px;
+    white-space: nowrap;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Kronologi: `|` entries render as a rail of key moments beside/under the photo. */
+  .md-fig__chrono {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 4px;
+  }
+
+  .md-fig__chrono-item {
+    position: relative;
+    padding-left: 14px;
+    color: var(--mute);
+  }
+
+  .md-fig__chrono-item::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 6.5px;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--accent, var(--ink));
+  }
+
+  .md-fig__chrono-item::after {
+    content: "";
+    position: absolute;
+    left: 2px;
+    top: 14px;
+    bottom: -6px;
+    width: 1px;
+    background: var(--gu-line, var(--line));
+  }
+
+  .md-fig__chrono-item:last-child::after {
+    display: none;
+  }
+
+
 
   @container (max-width: 380px) {
     .md-fig.is-left,

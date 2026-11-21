@@ -5293,10 +5293,56 @@ html[data-theme="dark"] .intel-cmp-chip__slot[data-slot-tone="gold"] {
 
 .intel-bullet-list {
   margin: 4px 0 0;
-  padding-left: 16px;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 5px;
   font-size: 12px;
   line-height: 1.55;
   color: color-mix(in srgb, var(--gu-ink) 70%, transparent);
+}
+
+.intel-bullet-list > li {
+  position: relative;
+  padding-left: 13px;
+}
+
+.intel-bullet-list > li::before {
+  content: "";
+  position: absolute;
+  left: 1px;
+  top: 0.62em;
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--gu-ink) 34%, transparent);
+}
+
+/* Semantic markers — benefits vs sacrifices inside compare cards */
+.intel-bullet-list--pos > li,
+.intel-bullet-list--neg > li {
+  padding-left: 15px;
+}
+
+.intel-bullet-list--pos > li::before,
+.intel-bullet-list--neg > li::before {
+  top: 0;
+  width: auto;
+  height: auto;
+  background: none;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: inherit;
+}
+
+.intel-bullet-list--pos > li::before {
+  content: "\2713";
+  color: #ef8c66;
+}
+
+.intel-bullet-list--neg > li::before {
+  content: "\2013";
+  color: #d97757;
 }
 
 .intel-callout,
@@ -11264,6 +11310,19 @@ html:root :is(.intel-subcard, .intel-compare-card, .intel-mebius-row, .intel-gra
   box-shadow: var(--gu-sep-h-in, none);
 }
 
+/* With an aside the strip is a 2-col grid: facts wrap inside their own column
+   instead of shoving the aside onto a ragged second row. Full-width extras
+   (RkStack etc.) span both columns. */
+.intel-rk__summary.has-aside {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.intel-rk__summary.has-aside > :nth-child(n + 3) {
+  grid-column: 1 / -1;
+}
+
 .intel-rk__facts {
   flex: 1 1 auto;
   display: flex;
@@ -11314,8 +11373,21 @@ html:root :is(.intel-subcard, .intel-compare-card, .intel-mebius-row, .intel-gra
   justify-content: flex-end;
   gap: 8px;
   padding: 10px var(--rk-pad-x);
-  margin-left: auto;
   min-width: 0;
+}
+
+/* Narrow strip: the aside stacks under the facts as a left-aligned row with the
+   same hairline separators the rest of the ledger uses. */
+@container (max-width: 480px) {
+  .intel-rk__summary.has-aside {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .intel-rk__summary.has-aside > .intel-rk__summary-aside {
+    justify-content: flex-start;
+    border-top: var(--gu-border-w, 1px) solid var(--gu-line);
+    box-shadow: var(--gu-sep-h-in, none);
+  }
 }
 
 .intel-rk__fact[data-tone="accent"] .intel-rk__fact-value { color: var(--gu-accent, #ef8c66); }

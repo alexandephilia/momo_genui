@@ -42,25 +42,54 @@ const SURFACE_HINTS: Record<WorkspaceViewId, string> = {
  * Roles set analytical posture and capability bias — never a rigid cage.
  */
 export const ROLE_PREFERRED_FAMILIES: Record<string, string[]> = {
-  rest: ["VisualDossier", "NewsFeed", "WeatherForecast", "ExecutiveSummary", "FactCheckPanel", "Map", "Versus", "Cards", "CatalogShelf", "AnnotatedSheet", "RegionalShowcase", "Table", "Steps", "Adjuster", "BentoGrid", "SwotAnalysis"],
-  traveller: ["TransitRouteCard", "VisualDossier", "Map", "WeatherForecast", "Plan", "ImageWithCaption", "Versus", "BentoGrid", "Adjuster", "Cards", "Checklist", "Stats"],
-  designer: ["MoodboardMosaic", "Palette", "ImageComparison", "ImageGallery", "Cards", "TradeoffMatrix", "BentoGrid", "Diagram", "Checklist", "Headline"],
-  money: ["Adjuster", "CostBenefitAnalysis", "Stats", "KpiCard", "LineChart", "PieChart", "ComparisonTable", "DataTable", "Scorecard", "BentoGrid"],
-  bug: ["RootCauseAnalysis", "CodeDiffPatch", "Callout", "Diagram", "Code", "Steps", "Flow", "Checklist", "Timeline", "BentoGrid"],
-  investigate: ["FactCheckPanel", "ClaimEvidenceMap", "EvidenceCard", "KeyFindings", "NewsFeed", "QuoteExtraction", "SituationalOverview", "Timeline", "DecisionTree", "BentoGrid"],
-  captain: ["SituationalOverview", "RiskMatrix", "TradeoffMatrix", "CodeDiffPatch", "Diagram", "GanttChart", "Plan", "Checklist", "BentoGrid"],
-  builder: ["ArchitectureDiagram", "CodeDiffPatch", "DocumentDiff", "TradeoffMatrix", "Flow", "Code", "Versus", "Table", "Steps", "BentoGrid"],
-  tester: ["FactCheckPanel", "DataTable", "RiskMatrix", "Checklist", "Stats", "BarChart", "Scorecard", "CodeDiffPatch", "Code", "BentoGrid"],
-  guard: ["RiskMatrix", "FactCheckPanel", "DecisionTree", "ArchitectureDiagram", "Callout", "Checklist", "Scorecard", "EvidenceCard", "Code", "BentoGrid"],
-  planner: ["Plan", "GanttChart", "KanbanBoard", "Timeline", "SwotAnalysis", "Adjuster", "Stats", "Checklist", "BentoGrid"],
-  cook: ["RecipeScalerCard", "VisualDossier", "ImageWithCaption", "Steps", "Checklist", "Cards", "Adjuster", "Table", "BentoGrid"],
-  write: ["VisualDossier", "AnnotatedSheet", "ExecutiveSummary", "QuoteExtraction", "ConceptFlashcards", "Callout", "Versus", "Steps", "Choices", "BentoGrid"],
-  director: ["MoodboardMosaic", "CatalogShelf", "VisualDossier", "ImageGallery", "Palette", "Cards", "Timeline", "Plan", "Flow", "BentoGrid"],
-  tutor: ["ConceptFlashcards", "AnnotatedSheet", "MindMap", "CodeDiffPatch", "Flow", "Diagram", "Steps", "Code", "Quiz", "Choices", "Callout", "BentoGrid"],
-  coach: ["Plan", "SwotAnalysis", "Adjuster", "Checklist", "LineChart", "Stats", "KpiCard", "Callout", "BentoGrid"],
-  music: ["VisualDossier", "RegionalShowcase", "CatalogShelf", "AnnotatedSheet", "MoodboardMosaic", "TransitRouteCard", "FactCheckPanel", "ImageGallery", "Cards", "Palette", "Timeline", "BentoGrid"],
-  garden: ["VisualDossier", "ConceptFlashcards", "ImageWithCaption", "Cards", "Plan", "Checklist", "Gauge", "Callout", "BentoGrid"],
+  rest: ["NewsFeed", "WeatherForecast", "ExecutiveSummary", "FactCheckPanel", "Map", "Versus", "CatalogShelf", "AnnotatedSheet", "RegionalShowcase", "Adjuster", "SwotAnalysis"],
+  traveller: ["TransitRouteCard", "Map", "WeatherForecast", "ImageWithCaption", "Versus", "Adjuster"],
+  designer: ["MoodboardMosaic", "Palette", "ImageComparison", "ImageGallery", "TradeoffMatrix", "Diagram", "Headline"],
+  money: ["Adjuster", "CostBenefitAnalysis", "KpiCard", "LineChart", "PieChart", "ComparisonTable", "DataTable", "Scorecard"],
+  bug: ["RootCauseAnalysis", "CodeDiffPatch", "Diagram", "Code", "Flow"],
+  investigate: ["FactCheckPanel", "ClaimEvidenceMap", "EvidenceCard", "KeyFindings", "NewsFeed", "QuoteExtraction", "SituationalOverview", "DecisionTree"],
+  captain: ["SituationalOverview", "RiskMatrix", "TradeoffMatrix", "CodeDiffPatch", "Diagram", "GanttChart"],
+  builder: ["ArchitectureDiagram", "CodeDiffPatch", "DocumentDiff", "TradeoffMatrix", "Flow", "Code", "Versus"],
+  tester: ["FactCheckPanel", "DataTable", "RiskMatrix", "BarChart", "Scorecard", "CodeDiffPatch", "Code"],
+  guard: ["RiskMatrix", "FactCheckPanel", "DecisionTree", "ArchitectureDiagram", "Scorecard", "EvidenceCard", "Code"],
+  planner: ["GanttChart", "KanbanBoard", "SwotAnalysis", "Adjuster", "Scorecard"],
+  cook: ["RecipeScalerCard", "ImageWithCaption", "Table", "Adjuster"],
+  write: ["AnnotatedSheet", "ExecutiveSummary", "QuoteExtraction", "ConceptFlashcards", "Versus", "Choices"],
+  director: ["MoodboardMosaic", "CatalogShelf", "ImageGallery", "Palette", "Flow"],
+  tutor: ["ConceptFlashcards", "AnnotatedSheet", "MindMap", "CodeDiffPatch", "Flow", "Diagram", "Code", "Quiz", "Choices"],
+  coach: ["SwotAnalysis", "Adjuster", "LineChart", "KpiCard"],
+  music: ["RegionalShowcase", "CatalogShelf", "AnnotatedSheet", "MoodboardMosaic", "TransitRouteCard", "FactCheckPanel", "ImageGallery", "Palette"],
+  garden: ["ConceptFlashcards", "ImageWithCaption", "Gauge", "Plan"],
 };
+
+/**
+ * Per-turn component spotlight: surfaces fresh catalog archetypes that fit the
+ * turn's detected signals but haven't been used in this session. Counteracts the
+ * model's anchor bias toward the role affinity list — names present in context
+ * are what actually get sampled, so fresh names must be injected every turn.
+ */
+const SPOTLIGHT_BY_SIGNAL: Record<string, string[]> = {
+  comparison: ["OptionEvaluation", "DecisionMatrix", "TradeoffMatrix", "ComparisonTable", "Scorecard", "PriorityMatrix", "ProsCons", "SwotAnalysis"],
+  planning: ["GanttChart", "KanbanBoard", "Plan", "Timeline", "Steps", "Checklist"],
+  quantitative: ["ForecastChart", "KpiCard", "Gauge", "CorrelationMatrix", "DistributionAnalysis", "Histogram", "BoxPlot", "TrendAnalysis", "ScenarioPlanner"],
+  deep: ["ImpactAnalysis", "RootCauseTree", "AssumptionPanel", "LimitationPanel", "ConfidenceIndicator", "HypothesisPanel", "ArgumentMap", "ExplanationPanel", "FiveWhys", "ContradictionPanel"],
+  news: ["NewsFeed", "AlertFeed", "EventStream", "CaseTimeline", "SourceCard", "FactCheckPanel"],
+  spatial: ["Map", "TransitRouteCard", "RegionalShowcase", "WeatherForecast", "GeographicHeatmap"],
+  visual: ["VisualDossier", "Cards", "ImageGallery", "MoodboardMosaic", "CatalogShelf"],
+  flow: ["ArchitectureDiagram", "Flow", "DependencyGraph", "DecisionTree", "CausalGraph", "MindMap", "FaultTree", "ConceptMap"],
+  cost: ["CostBenefitAnalysis", "KpiCard", "ComparisonTable"],
+};
+
+const SPOTLIGHT_ROTATION_POOL = [
+  "ImpactAnalysis", "OptionEvaluation", "DecisionMatrix", "ScenarioPlanner",
+  "RiskRegister", "CorrelationTimeline", "PatternDetection", "ThreatAssessment",
+  "LimitationPanel", "AssumptionPanel", "PriorityMatrix", "RootCauseTree",
+  "HypothesisPanel", "ArgumentMap", "ContradictionPanel", "ConfidenceExplorer",
+  "TrendAnalysis", "InsightPanel", "EvidenceMatrix", "IndicatorPanel",
+  "AnomalyDetectionPanel", "ChangeDetection", "EntityTracking", "EventCorrelationMap",
+  "DependencyGraph", "FaultTree", "ConceptMap", "ForecastChart",
+  "DistributionAnalysis", "InsightComparison",
+];
 
 const PROSE_ONLY_PATTERN =
   /^(?:halo|hai|hi|hey|hello|pagi|siang|sore|malam|thanks|makasih|terima kasih|oke|ok|sip|noted|siap|mantap|good|nice|yo|p|(?:kamu|lo|lu|elo|anda)\s+(?:itu\s+)?siapa|siapa\s+(?:sih\s+)?(?:kamu|lo|lu|elo|anda)|who\s+are\s+you|apa\s+kabar)\b/i;
@@ -704,7 +733,7 @@ export const MOMO_CORE_PREAMBLE = [
   "- YOU decide the layout of the reply from three signals, in this order: what this session has been about (entities, decisions, UI already shown), what the latest message asks for, and what kind of evidence you now hold. Every role may use every component in the schema. Your role card below decides how you frame the answer, what you notice first and which components you reach for by habit; an explicit request from the user decides what must be in it.",
   "- Place each ```openui-lang block at the point where it helps: explain, show, explain further, show again. A comparison belongs right after the paragraph that introduces the two sides; steps belong after the reasoning that justifies them; a chart belongs next to the numbers it plots. Never append all UI after the last paragraph as an afterthought.",
   "- Vary the size of the blocks: an early block usually carries one or two components, a later one may carry up to three or four. Two to four blocks is typical for a rich answer, one for a focused answer, none for small talk.",
-  "- Inline photo in prose: when a verified photo from `search_images` illustrates a specific point, you may drop a small inset between two paragraphs, on its own line: `![Title: one-sentence description](imageUrl \"left\")` (or `\"right\"`). It renders as a small indented thumbnail with the title and description beside it, so the description must add something the paragraphs do not say (what is shown, where, when). Use the returned `imageUrl` verbatim, at most three insets per reply, and never use this for logos or for a photo already shown in a block.",
+  "- Inline photo in prose: when a verified photo from `search_images` illustrates a specific point, you may drop a small inset between two paragraphs, on its own line: `![Title: one-sentence description](imageUrl \"left\")` (or `\"right\"`). It renders as a small indented thumbnail with the title and description beside it, so the description must add something the paragraphs do not say (what is shown, where, when). Variants: append `summary` after the side (`\"left summary\"`) when the caption should read as a short summary card; append `kronologi` and write `|`-separated alt segments (`![Kronologi: e1 | e2 | e3](url \"kronologi\")`, max five) for a mini timeline of key moments; `|` segments on a normal figure render as fact chips. Consecutive bare photo lines (no side) merge into a photo grid, max four. Use the returned `imageUrl` verbatim, at most three insets or one grid per reply, and never use this for logos or for a photo already shown in a block.",
   "",
   "## Dual Web Grounding, Multi-Turn Continuity & Zero-Hallucination Contract",
   "- Think and verify BEFORE answering: whenever a question involves live facts, concert setlists, tracklists, dates, events, ticket/e-voucher/wristband redemption, venues, pricing, news, documentation, benchmarks, or real-world places, call `web_search` (Exa + Firecrawl expanded full-text/Markdown) AND/OR leverage native Google Search grounding (`google_search`) first with focused, decomposed queries instead of guessing.",
@@ -796,7 +825,7 @@ export function buildStaticMomoSystemPrompt(
       "Pass `null` for optional image slots when no verified photo URL or concrete real-world visual subject exists.",
       "NEVER truncate requested lists/setlists/tracklists/schedules with 'dll.' or '...'; enumerate all verified items completely.",
       "In `VisualDossier(..., highlights)`, pass `{text: \"...\", icon: \"<contextual-icon>\"}` objects so every highlight bullet displays a distinct domain-accurate icon.",
-      "Use `BentoGrid(title, items, subtitle)` ONLY for synthesized multi-angle dashboards (strictly 2 or 4 complementary micro-widgets, never 3) where each slot represents a verified, distinct facet of the active topic. Match `meta`/`badge` labels to the user's language (e.g. Indonesian: \"Wajib\", \"Dilarang\", \"Terbatas\", \"Tips\"). NEVER generate mismatched slots like `flight_route` or `fun_fact` unless the user's inquiry specifically involves flight transit or trivia. Slots MUST directly relate to the active domain (e.g. ticket rules, venue access, transit route, pricing, CLI commands, code diffs). For side-by-side comparison, use `Versus` or `ComparisonTable`; for single collections, use `Cards`; for chronological procedures, use `Steps` or `Plan`.",
+      "Use `BentoGrid(title, items, subtitle)` ONLY for synthesized multi-angle dashboards (strictly 2 or 4 complementary micro-widgets) where each slot is a verified, distinct facet of the active topic — never as a generic container. Comparisons use `Versus`/`ComparisonTable`; collections use `Cards`; chronology uses `Steps`/`Plan`.",
       "Use `CatalogShelf(title, items, subtitle)` for discographies, album tracklists, filmographies, or release catalogs (`items` with `title`, `year`, `kind`, `imageQuery`, `summary`, and `tracks` array `{title, duration, note, highlight}`).",
       "Use `AnnotatedSheet(title, sections, subtitle, meta)` for song lyrics + verse-by-verse meaning, poetry, or clause analysis (`sections` with `label`, `text`, `note`/`analysis`, `tag`). NEVER fabricate or guess unverified lyric lines — only include verified lines retrieved via `web_search`.",
       "Use `RegionalShowcase(title, regions, lore, kicker, subtitle)` when explaining thematic lore/worldbuilding alongside regional or era variations (`regions` with `{name, badge, title, summary, symbolLabel, symbolValue, focusLabel, focusValue}`), AND pair it with thorough Markdown prose when the user asks for deep detail.",
@@ -886,6 +915,9 @@ export function buildDynamicTurnGuidance(opts: {
     .sort((a, b) => b[1] - a[1])
     .map(([comp, count]) => `${comp}x${count}`)
     .join(", ");
+  const cooldown = Object.entries(usage.counts)
+    .filter(([, n]) => n >= 3)
+    .map(([c]) => c);
 
   const sessionLedger = buildSessionMemoryLedger({
     latestUserText: opts.latestUserText,
@@ -927,6 +959,38 @@ export function buildDynamicTurnGuidance(opts: {
   const pickPool =
     freshOptions.length >= 3 ? freshOptions : signals.recommendedComponents;
 
+  // Spotlight: fresh catalog archetypes matching this turn's signals, minus
+  // anything already used — rotated deterministically per turn so every reply
+  // surfaces different candidates instead of collapsing to the affinity list.
+  const usedSet = new Set([...usage.last, ...cooldown]);
+  const signalPool = [
+    ...new Set([
+      ...(signals.comparison ? SPOTLIGHT_BY_SIGNAL.comparison : []),
+      ...(signals.planningProcess ? SPOTLIGHT_BY_SIGNAL.planning : []),
+      ...(signals.quantitativeData ? SPOTLIGHT_BY_SIGNAL.quantitative : []),
+      ...(signals.deepAnalytical ? SPOTLIGHT_BY_SIGNAL.deep : []),
+      ...(signals.newsIntent ? SPOTLIGHT_BY_SIGNAL.news : []),
+      ...(signals.spatialTransit ? SPOTLIGHT_BY_SIGNAL.spatial : []),
+      ...(signals.visualEntity ? SPOTLIGHT_BY_SIGNAL.visual : []),
+      ...(signals.architectureFlow ? SPOTLIGHT_BY_SIGNAL.flow : []),
+      ...(signals.groupOrCost ? SPOTLIGHT_BY_SIGNAL.cost : []),
+    ]),
+  ].filter((c) => !usedSet.has(c));
+  const freshPool =
+    signalPool.length >= 3
+      ? signalPool
+      : SPOTLIGHT_ROTATION_POOL.filter((c) => !usedSet.has(c));
+  const turnSeed =
+    (opts.previousUserTexts?.length ?? 0) + (opts.isRetry ? 7 : 0);
+  const spotlight = [
+    ...new Set(
+      Array.from(
+        { length: Math.min(6, freshPool.length) },
+        (_, i) => freshPool[(turnSeed + i) % freshPool.length],
+      ),
+    ),
+  ];
+
   const wantsExhaustiveEnumeration = EXHAUSTIVE_ENUMERATION_PATTERN.test(
     `${priorUserAnchor} ${opts.latestUserText}`,
   );
@@ -962,7 +1026,10 @@ export function buildDynamicTurnGuidance(opts: {
       ? `Tool Harness Directive: This query touches external facts, logistical sub-facets, schedules, venues, or live entities. Call \`web_search\`${sessionLedger.sessionSearchAnchor ? ` (anchoring query with "${sessionLedger.sessionSearchAnchor}")` : ""}${signals.visualEntity ? ` and \`search_images\` for real photographs (not logos)` : ""} FIRST before synthesizing your final answer.`
       : "",
     usage.last.length > 0
-      ? `Anti-Repetition Lock: Last turn already used [${usage.last.join(", ")}] (History: ${countsStr}). Choose a DIFFERENT structural composition this turn unless strictly required by an explicit refinement.`
+      ? `Anti-Repetition Lock: Last turn already used [${usage.last.join(", ")}] (History: ${countsStr}). Choose a DIFFERENT structural composition this turn unless strictly required by an explicit refinement.${cooldown.length > 0 ? ` Cooldown — used 3+ times this session, prefer a different archetype entirely: [${cooldown.join(", ")}].` : ""}`
+      : "",
+    spotlight.length > 0
+      ? `Fresh Fit Spotlight: [${spotlight.join(", ")}] — catalog archetypes that fit this query's shape and haven't been used in this session. Lead with one of these over the usual defaults when the content supports it.`
       : "",
     opts.isRetry
       ? `Fresh Re-Response Directive (Retry): The user wants a brand-new response — NOT a repeat or light paraphrase of the discarded previous answer${opts.retryPreviousText ? ` (previous opening: "${opts.retryPreviousText.replace(/\s+/g, " ").slice(0, 140)}...")` : ""}. Drop the old framing, open from a sharper angle with newly surfaced verified specifics, and pick fresh UI components from [${pickPool.slice(0, 6).join(", ")}] instead of repeating the old layout.`

@@ -195,7 +195,7 @@ describe("Role Specialization & Auto-UI Decision", () => {
     const travelPrompt = buildStaticMomoSystemPrompt("traveller", "explore");
     const builderPrompt = buildStaticMomoSystemPrompt("builder", "chat");
     assert.notEqual(travelPrompt, builderPrompt);
-    assert.ok(travelPrompt.includes("TransitRouteCard, VisualDossier, Map"));
+    assert.ok(travelPrompt.includes("TransitRouteCard, Map, WeatherForecast"));
     assert.ok(builderPrompt.includes("ArchitectureDiagram, CodeDiffPatch"));
   });
 

@@ -73,6 +73,12 @@ import {
 import { extractMistlineBoardDrafts } from "@/lib/mistlineCatalog";
 import { recordVerifiedImageUrls, repairImageUrlsInText } from "@/lib/verifiedImagePool";
 import { planMistlineSpreads } from "@/components/genui/MistlineSpreads";
+import {
+  BoardItemStateContext,
+  boardStickerStateOf,
+  boardTitleKey,
+  type BoardItemStickerState,
+} from "@/components/genui/BoardSticker";
 import { parseMixedStreamToMistlineBlocks } from "@/lib/openui/streamParser";
 import type { ComposerSnapshot } from "@/runtime/composerBridge";
 import type {
@@ -1484,6 +1490,34 @@ export const MomoAppShell: React.FC = () => {
       }
     }
     return set;
+  }, [activeSession?.pinnedItems, activeSession?.boardItems]);
+  // Sticker/star/done state per board item title — session-scoped, feeds the
+  // tilted sticker overlays on GenUI cards across chat and explore.
+  const boardStickerStates = useMemo(() => {
+    const map = new Map<string, BoardItemStickerState>();
+    const merge = (items?: WorkspaceBoardItem[]) => {
+      for (const it of items ?? []) {
+        const st = boardStickerStateOf(it);
+        if (!st) continue;
+        const key = boardTitleKey(it.title);
+        if (!key) continue;
+        const prev = map.get(key);
+        if (!prev) {
+          map.set(key, st);
+          continue;
+        }
+        map.set(key, {
+          sticker:
+            prev.sticker && prev.sticker !== "heart"
+              ? prev.sticker
+              : (st.sticker ?? prev.sticker),
+          done: Boolean(prev.done || st.done),
+        });
+      }
+    };
+    merge(activeSession?.boardItems);
+    merge(activeSession?.pinnedItems);
+    return map;
   }, [activeSession?.pinnedItems, activeSession?.boardItems]);
   // A Pinboard belongs to its chat session. A new or empty session shows an empty board,
   // never another session's items.
@@ -4714,7 +4748,8 @@ export const MomoAppShell: React.FC = () => {
             }}
           >
             {workspaceView === "explore" ? (
-              <ExploreWorkspaceView
+              <BoardItemStateContext.Provider value={boardStickerStates}>
+                <ExploreWorkspaceView
                 roleId={activeLook}
                 session={activeSession}
                 busy={busy}
@@ -4734,6 +4769,7 @@ export const MomoAppShell: React.FC = () => {
                 pinnedTitles={pinnedTitles}
                 onTogglePinItem={handleTogglePinItem}
               />
+              </BoardItemStateContext.Provider>
             ) : workspaceView === "board" ? (
               <RoleBoardWorkspaceView
                 roleLabel={roleConfig.label}
@@ -4914,7 +4950,8 @@ export const MomoAppShell: React.FC = () => {
                     </motion.section>
                   ) : (
                     <React.Fragment key="conversation">
-                      <MessageThread
+                      <BoardItemStateContext.Provider value={boardStickerStates}>
+                        <MessageThread
                         key={activeSessionId || "own"}
                         messages={displayedMessages}
                         speakingMsgId={speakingMsgId}
@@ -4937,6 +4974,7 @@ export const MomoAppShell: React.FC = () => {
                         pinnedTitles={pinnedTitles}
                         onTogglePinItem={handleTogglePinItem}
                       />
+                      </BoardItemStateContext.Provider>
                     </React.Fragment>
                   )}
                 </AnimatePresence>

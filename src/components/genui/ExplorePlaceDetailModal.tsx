@@ -7,6 +7,11 @@ import { AnimatePresence, motion } from "motion/react";
 import { InteractiveMapBlock } from "@/components/cards/InteractiveMapBlock";
 import { buildProxiedImageUrl, type NormalizedImageAsset } from "@/lib/imageAssetContract";
 import { EASE_MOMO, MH } from "@/components/motion/MotionPrimitives";
+import {
+  BoardStickerOverlay,
+  boardTitleKey,
+  useBoardItemStates,
+} from "./BoardSticker";
 import type { WorkspaceBoardItem } from "@/types/momo";
 
 export interface ExploreDetailTarget {
@@ -86,6 +91,7 @@ export const ExplorePlaceDetailModal: React.FC<ExplorePlaceDetailModalProps> = (
   pinnedTitles,
   onTogglePinItem,
 }) => {
+  const boardStickers = useBoardItemStates();
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [highlights, setHighlights] = useState<HighlightRow[]>([]);
@@ -212,6 +218,9 @@ export const ExplorePlaceDetailModal: React.FC<ExplorePlaceDetailModalProps> = (
             transition={{ duration: 0.24, ease: EASE_MOMO }}
             onClick={(e) => e.stopPropagation()}
           >
+            <BoardStickerOverlay
+              state={boardStickers.get(boardTitleKey(item.title))}
+            />
             <header className="sp-detail-head">
               <div className="sp-detail-head__copy">
                 <div className="sp-detail-chips">

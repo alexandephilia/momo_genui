@@ -23,6 +23,11 @@ import {
   type ExploreDetailTarget,
 } from "./ExplorePlaceDetailModal";
 import { GenerativeSkeleton, MistlineBlockBoundary } from "./MistlineBlocks";
+import {
+  BoardStickerOverlay,
+  boardTitleKey,
+  useBoardItemStates,
+} from "./BoardSticker";
 import { inferContextualIcon, MistlineIcon } from "./MistlineIcons";
 import {
   arr,
@@ -736,6 +741,7 @@ function Mosaic({
   const items = arr(p.items)
     .map(rec)
     .filter((it) => str(it.title));
+  const boardStickers = useBoardItemStates();
   const [resolvedImgs, setResolvedImgs] = useState<Record<string, string>>({});
   const pinnedCount = items.filter((it) =>
     pinnedTitles?.has(str(it.title).trim().toLowerCase())
@@ -754,6 +760,7 @@ function Mosaic({
         {items.map((it, i) => {
           const title = str(it.title);
           const isPinned = pinnedTitles?.has(title.trim().toLowerCase());
+          const sticker = boardStickers.get(boardTitleKey(title));
           const explicitImg = pickImg(it);
           const isTech = SPREAD_TECHNICAL_ICONS.has(str(it.icon).toLowerCase());
           const queryText =
@@ -763,7 +770,7 @@ function Mosaic({
               : undefined);
           return (
             <motion.figure
-              className="sp-mosaic__item is-interactive"
+              className={`sp-mosaic__item is-interactive${sticker?.done ? " is-done" : ""}`}
               key={`mos-${i}`}
               whileHover={MH.card}
               whileTap={MH.press}
@@ -786,6 +793,7 @@ function Mosaic({
               }
             >
               <span className="sp-mosaic__photo">
+                <BoardStickerOverlay state={sticker} />
                 <MistlinePhoto
                   src={explicitImg || undefined}
                   query={queryText}
