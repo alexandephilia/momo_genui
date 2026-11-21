@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <radialGradient id="momo-body" cx="38%" cy="28%" r="72%">
+      <stop offset="0%" stop-color="#FBC2A2" />
+      <stop offset="52%" stop-color="#EF8C66" />
+      <stop offset="100%" stop-color="#DA6C4D" />
+    </radialGradient>
+    <linearGradient id="momo-visor" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#22232B" />
+      <stop offset="100%" stop-color="#111217" />
+    </linearGradient>
+    <filter id="eye-glow" x="-35%" y="-35%" width="170%" height="170%">
+      <feGaussianBlur stdDeviation="1.4" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+  <circle cx="32" cy="32" r="28" fill="url(#momo-body)" />
+  <circle cx="32" cy="32" r="27.25" stroke="#B5523C" stroke-opacity="0.28" stroke-width="1.5" />
+  <rect x="13" y="21" width="38" height="22" rx="11" fill="url(#momo-visor)" />
+  <rect
+    x="13.75"
+    y="21.75"
+    width="36.5"
+    height="20.5"
+    rx="10.25"
+    stroke="#FFFFFF"
+    stroke-opacity="0.14"
+    stroke-width="1.5"
+  />
+  <g filter="url(#eye-glow)">
+    <rect x="21.5" y="27" width="6.5" height="10" rx="3.25" fill="#FFFFFF" />
+    <rect x="36" y="27" width="6.5" height="10" rx="3.25" fill="#FFFFFF" />
+  </g>
+</svg>

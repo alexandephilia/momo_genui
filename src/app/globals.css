@@ -1,0 +1,204 @@
+@import "../styles/index.css";
+@import "../styles/mistline-genui.css";
+@import "../styles/playground.css";
+@import "../styles/intelligence.css";
+@import "../styles/intel-dataviz.css";
+
+:root {
+  color-scheme: light;
+  --font: var(--font-instrument-sans), "Instrument Sans", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display-serif: var(--font-instrument-serif), Georgia, serif;
+  --font-hand: var(--font-reenie-beanie), "Comic Sans MS", cursive;
+
+  /* Composer chassis tokens (01-skeuo-ui Precision Porcelain Light parity) */
+  --cmp-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 10px 26px -10px rgba(0, 0, 0, 0.14);
+  --cmp-fill-1: #fcfcfc;
+  --cmp-fill-2: #f7f7f7;
+  --cmp-fill-3: #f2f2f2;
+  --cmp-spec-edge: rgba(255, 255, 255, 0.65);
+  --cmp-spec-peak: #ffffff;
+  --cmp-rim-1: rgba(0, 0, 0, 0.085);
+  --cmp-rim-2: rgba(0, 0, 0, 0.11);
+  --cmp-well-bg: rgba(0, 0, 0, 0.048);
+  --cmp-well-shadow: inset 0 1.5px 2.5px rgba(0, 0, 0, 0.075), inset 0 0 0 1px rgba(0, 0, 0, 0.045), 0 1px 0 #ffffff;
+  --cmp-divider: rgba(0, 0, 0, 0.08);
+  --cmp-key-bg: linear-gradient(180deg, #fcfcfc 0%, #f2f2f2 100%);
+  --cmp-key-shadow: inset 0 1px 0 #ffffff, 0 1px 1px rgba(0, 0, 0, 0.05), 0 3px 5px -2px rgba(0, 0, 0, 0.12), inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+  --cmp-send-idle-bg: rgba(0, 0, 0, 0.025);
+  --cmp-send-idle-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.055), inset 0 0 0 1px rgba(0, 0, 0, 0.04);
+  --cmp-key-muted: #45454b;
+  --cmp-key-disabled: rgba(107, 107, 115, 0.52);
+  --cmp-text: #141416;
+  --cmp-placeholder: rgba(107, 107, 115, 0.82);
+  --cmp-crest-idle: #6b6b73;
+  --cmp-crest-active: #141416;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  /* Dark-mode defaults for accent tokens so initial paint never flashes light peach */
+  --accent-soft: #4a3531;
+  --accent-ink: #fbc2a2;
+  --accent-sel: #523832;
+
+  /* Composer chassis tokens (01-skeuo-ui Matte Charcoal Dark parity) */
+  --cmp-shadow: 0 1px 2px rgba(0, 0, 0, 0.45), 0 14px 32px -10px rgba(0, 0, 0, 0.65);
+  --cmp-fill-1: #1e2028;
+  --cmp-fill-2: #191b22;
+  --cmp-fill-3: #15171d;
+  --cmp-spec-edge: rgba(255, 255, 255, 0.12);
+  --cmp-spec-peak: rgba(255, 255, 255, 0.18);
+  --cmp-rim-1: rgba(255, 255, 255, 0.16);
+  --cmp-rim-2: rgba(255, 255, 255, 0.105);
+  --cmp-well-bg: rgba(0, 0, 0, 0.42);
+  --cmp-well-shadow: inset 0 1.5px 3px rgba(0, 0, 0, 0.76), inset 0 0 0 1px rgba(0, 0, 0, 0.45), 0 1px 0 rgba(255, 255, 255, 0.06);
+  --cmp-divider: rgba(255, 255, 255, 0.08);
+  --cmp-key-bg: linear-gradient(180deg, #24262e 0%, #1d1f26 100%);
+  --cmp-key-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.10), 0 1px 2px rgba(0, 0, 0, 0.45), 0 2px 5px -2px rgba(0, 0, 0, 0.42), inset 0 0 0 1px rgba(0, 0, 0, 0.45);
+  --cmp-send-idle-bg: rgba(0, 0, 0, 0.24);
+  --cmp-send-idle-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.65), 0 1px 0 rgba(255, 255, 255, 0.045);
+  --cmp-key-muted: #c7c7cd;
+  --cmp-key-disabled: rgba(142, 142, 150, 0.52);
+  --cmp-text: #f2f2f4;
+  --cmp-placeholder: rgba(142, 142, 150, 0.8);
+  --cmp-crest-idle: #8e8e96;
+  --cmp-crest-active: #f2f2f4;
+}
+
+/* Reactive theme-safe accent derivation scoped to .app so frame 0 obeys data-theme before hydration */
+:root:not([data-theme="dark"]) .app {
+  --accent-soft: var(--role-soft-l, #fde4d5);
+  --accent-ink: var(--role-ink-l, #111113);
+  --accent-sel: var(--role-sel-l, #fddfcf);
+}
+
+:root[data-theme="dark"] .app {
+  --accent-soft: var(--role-soft-d, #453c3a);
+  --accent-ink: var(--role-ink-d, #f4f4f6);
+  --accent-sel: var(--role-sel-d, #4e423f);
+}
+
+html,
+body,
+button,
+input,
+textarea,
+select {
+  font-family: var(--font);
+}
+
+/* Keep "Siapa yang bantu?" hero lockup on Space Grotesk */
+.ask,
+h1.ask {
+  font-family: var(--font-space-grotesk), "Space Grotesk", var(--font);
+}
+
+/* Ghost-type writer: caret + faint completion */
+/* Chars are inline-block so `filter` applies; pre keeps spaces intact. */
+.ghost-type-char {
+  display: inline-block;
+  white-space: pre;
+}
+.ghost-type-char.is-reveal {
+  animation: ghostCharReveal 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes ghostCharReveal {
+  from { opacity: 0; filter: blur(4px); transform: translateY(0.12em); }
+  to { opacity: 1; filter: blur(0); transform: none; }
+} 
+
+/* Caret takes zero layout width so the ghost remainder never shifts; bar is drawn by ::after in the role accent. */
+.ghost-type-caret {
+  position: relative;
+  display: inline-block;
+  width: 0; 
+  height: 0.9em;
+  vertical-align: -0.12em;
+}
+.ghost-type-caret::after {
+  content: "";
+  position: absolute;
+  left: 1px;
+  top: 0.02em;
+  bottom: 0.02em;
+  width: 2.5px;
+  border-radius: 2px;
+  background: var(--accent, currentColor);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--accent, currentColor) 55%, transparent);
+}
+/* Solid while typing, blinks only once the line is committed */
+.ghost-type-caret.is-idle::after {
+  animation: ghostCaretBlink 1.1s steps(1) infinite;
+}
+.ghost-type-ghost {
+  opacity: 0.38;
+}
+@keyframes ghostCaretBlink {
+  0%, 55% { opacity: 1; }
+  56%, 100% { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ghost-type-char.is-reveal,
+  .ghost-type-caret.is-idle::after {
+    animation: none;
+  }
+}
+
+/* Composer input + suggestion overlay on Space Grotesk */
+.composer-input-wrap {
+  font-family: var(--font-space-grotesk), "Space Grotesk", var(--font);
+}
+.composer-input-wrap textarea {
+  font-family: var(--font-space-grotesk), "Space Grotesk", var(--font);
+}
+
+/* Chat messages (user bubble + bot prose) on Space Grotesk */
+.msg .bubble,
+.msg.bot .body {
+  font-family: var(--font-space-grotesk), "Space Grotesk", var(--font);
+}
+
+/* Role selector (bot-pick) and its menus on Space Grotesk */
+.bot-pick,
+.bot-menu,
+.bot-menu [role="menuitemradio"],
+.bot-menu [role="menuitem"],
+.bot-menu .label,
+.bot-menu .nm,
+.bot-menu .job,
+.bot-menu-new,
+.bot-form,
+.bot-form .field,
+.bot-form h2,
+.bot-form p,
+.bot-form button {
+  font-family: var(--font-space-grotesk), "Space Grotesk", var(--font);
+}
+
+/* ── User prompts: handwritten marginalia, never bubbles ────────────────── */
+.msg.user {
+  align-self: stretch;
+  max-width: 100%;
+}
+.msg.user .bubble {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  background-image: none;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  font-family: var(--font-reenie-beanie), "Reenie Beanie", var(--font-hand), cursive;
+  font-size: clamp(28px, 3.6vw, 44px);
+  font-weight: 400;
+  line-height: 1.04;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.msg.user .actions {
+  right: 0;
+  bottom: -6px;
+}

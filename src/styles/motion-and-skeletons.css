@@ -1,0 +1,312 @@
+/* ============================================================================
+ * UNIFIED SKEUOMORPHIC PER-ELEMENT SKELETONS + ZERO-INSTANT-CHANGE MOTION
+ * Cleanly upgrades 00-base.css & 01-skeuo-ui.css without breaking layouts.
+ * ============================================================================ */
+
+@keyframes skSheen {
+  0% { background-position: 130% 0; }
+  100% { background-position: -110% 0; }
+}
+
+/* 1. Kill :only-child & zero-height skeleton collapse + align skeuo shimmer (no fixed background tear) */
+.block {
+  position: relative;
+}
+
+.skeleton,
+.block .skeleton,
+.card.loading .skeleton {
+  position: relative;
+  inset: auto;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 12px;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 2;
+  transition: none;
+}
+
+.skeleton > .sk-grid:only-child,
+.skeleton > .sk-row:only-child {
+  flex: none;
+  align-content: start;
+}
+
+.skeleton > .sk-grid.sk-fill {
+  flex: 1;
+  align-content: stretch;
+}
+
+.sk-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 20px;
+}
+
+.skeleton i,
+.cover-skel {
+  display: block;
+  flex: none;
+  border-radius: 6px;
+  background: linear-gradient(
+      100deg,
+      color-mix(in srgb, var(--line-strong) 44%, var(--tile)) 0%,
+      color-mix(in srgb, var(--line-strong) 44%, var(--tile)) 34%,
+      color-mix(in srgb, var(--card) 92%, #ffffff) 50%,
+      color-mix(in srgb, var(--line-strong) 44%, var(--tile)) 66%,
+      color-mix(in srgb, var(--line-strong) 44%, var(--tile)) 100%
+    )
+    0 0 / 240% 100%;
+  background-attachment: scroll;
+  animation: skSheen 1.25s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+/* Skeuomorphic Anatomical Skeleton Primitives */
+.sk-bay {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 11px 12px;
+  border-radius: 14px;
+  border: 1px solid transparent;
+  background: var(--m3-plate-idle, var(--composer)) padding-box, var(--m3-plate-idle-edge, linear-gradient(var(--line), var(--line))) border-box;
+  box-shadow: var(--m3-plate-idle-in, var(--e1));
+}
+
+.sk-well {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: var(--m3-dock, var(--fill));
+  box-shadow: var(--m3-dock-in, inset 0 1px 3px rgba(0, 0, 0, 0.08));
+}
+
+.skeleton .sk-pill {
+  height: 28px;
+  border-radius: 999px;
+}
+
+.skeleton .sk-circle {
+  border-radius: 50%;
+}
+
+.skeleton .sk-gauge {
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+}
+
+.skeleton .sk-ring {
+  width: 116px;
+  height: 116px;
+  border-radius: 50%;
+  align-self: center;
+}
+
+.skeleton .sk-chip {
+  width: 108px;
+  height: 32px;
+  border-radius: 999px;
+}
+
+/* Card Cover & Chrome Skeletons + Smooth Transition (Zero display:none snaps) */
+.card-cover {
+  position: relative;
+}
+
+.cover-skel {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: 1;
+  pointer-events: none;
+  transition: opacity 0.32s var(--ease), visibility 0s linear 0.32s;
+}
+
+.card-cover.img-ready .cover-skel {
+  opacity: 0;
+  visibility: hidden;
+  animation: none;
+}
+
+.card ~ .sources {
+  transition: opacity 0.34s var(--ease), transform 0.36s cubic-bezier(0.42, 0, 0.85, 1);
+}
+
+.cover-chips,
+.card-foot {
+  transition: none;
+}
+
+.card.loading .cover-chips {
+  display: flex;
+  pointer-events: none;
+}
+
+.card.loading .card-foot {
+  pointer-events: none;
+}
+
+.card.loading ~ .sources {
+  display: block;
+  opacity: 0;
+  transform: translateY(5px);
+  pointer-events: none;
+}
+
+/* 2. Universal Block & Zone Stagger Reveal + Workout c3-stagger Gate Fix */
+.block > :not(.skeleton) {
+  transition: none;
+}
+
+.card.loading .block:not(.ready) > :not(.skeleton) {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(6px);
+}
+
+.card.loading .block:not(.ready) .c3-stagger {
+  animation: none !important;
+  opacity: 0;
+}
+
+/* Session Custom Multi-Zone Skeleton Grids */
+.sk-bt-ticket {
+  display: grid;
+  grid-template-columns: minmax(0, 1.34fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: stretch;
+  flex: 1;
+}
+
+.sk-wc-cockpit {
+  display: grid;
+  grid-template-columns: minmax(0, 5.4fr) minmax(0, 6.6fr);
+  gap: 10px;
+  align-items: stretch;
+}
+
+@container card (max-width: 580px) {
+  .sk-bt-ticket,
+  .sk-wc-cockpit {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* 3. Smooth Theme Surfaces & Dual-Icon Sun/Moon Morph (gated on .theme-ready to prevent page-load FOWT transitions) */
+html.theme-ready,
+html.theme-ready body,
+html.theme-ready .side,
+html.theme-ready .main,
+html.theme-ready .top,
+html.theme-ready .play,
+html.theme-ready .card,
+html.theme-ready .card:before,
+html.theme-ready .bubble,
+html.theme-ready .skw-badge,
+html.theme-ready .skw-bay,
+html.theme-ready .skw-well,
+html.theme-ready .skw-pill,
+html.theme-ready .skw-chip,
+html.theme-ready .bot-pick {
+  transition-property: background-color, background, color, border-color, box-shadow;
+  transition-duration: 0.42s, 0.42s, 0.38s, 0.40s, 0.42s;
+  transition-timing-function: var(--ease);
+}
+
+@media (min-width: 1180px) {
+  html.theme-ready .play {
+    transition-property: background-color, background, color, border-color, box-shadow, opacity;
+    transition-duration: 0.42s, 0.42s, 0.38s, 0.40s, 0.42s, 0.22s;
+  }
+}
+
+.icon-btn.theme {
+  display: inline-grid;
+  place-items: center;
+}
+
+.icon-btn.theme svg {
+  grid-area: 1 / 1;
+  display: block !important;
+}
+
+html.theme-ready .icon-btn.theme svg {
+  transition: opacity 0.36s var(--ease), transform 0.42s cubic-bezier(0.42, 0, 0.85, 1);
+}
+
+:root:not([data-theme="dark"]) .icon-btn.theme .moon,
+:root[data-theme="dark"] .icon-btn.theme .sun {
+  opacity: 1;
+  transform: scale(1) rotate(0deg);
+}
+
+:root:not([data-theme="dark"]) .icon-btn.theme .sun,
+:root[data-theme="dark"] .icon-btn.theme .moon {
+  opacity: 0;
+  transform: scale(0.65) rotate(-42deg);
+  pointer-events: none;
+}
+
+/* 4. Empty <-> Thread Transitions (lifecycle owned by React AnimatePresence) */
+.empty {
+  transition: none;
+}
+
+/* Collapsible & Revealable Sections without abrupt snaps */
+@keyframes momoPanelReveal {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+#chatsGroup:not([hidden]),
+#keyForm:not([hidden]),
+#keyRow:not([hidden]),
+#writerStatus:not([hidden]),
+#brainLast:not([hidden]) {
+  animation: momoPanelReveal 0.42s cubic-bezier(0.42, 0, 0.85, 1) both;
+}
+
+.picker .opt,
+.list-group label {
+  transition: opacity 0.32s var(--ease), transform 0.32s var(--ease), background-color 0.32s var(--ease), border-color 0.32s var(--ease);
+}
+
+.momo-collapsible {
+  overflow: hidden;
+  transition: opacity 0.32s var(--ease), transform 0.36s cubic-bezier(0.42, 0, 0.85, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton i,
+  .cover-skel,
+  #chatsGroup:not([hidden]),
+  #keyForm:not([hidden]),
+  #keyRow:not([hidden]),
+  #writerStatus:not([hidden]),
+  #brainLast:not([hidden]) {
+    animation: none !important;
+  }
+
+  .cover-skel,
+  .card ~ .sources,
+  .icon-btn.theme svg,
+  .picker .opt,
+  .list-group label,
+  .momo-collapsible {
+    transition: none !important;
+  }
+}

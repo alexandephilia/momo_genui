@@ -1,0 +1,5 @@
+@media (max-width:600px){
+  .bl-items,.jp-wells,.bl-tele,.d1-grid,.d1-wells{grid-template-columns:1fr}
+  .bl-zones{grid-template-columns:1fr}
+  .card[data-view=pie] .split-card{grid-template-columns:1fr;justify-items:center}
+}
