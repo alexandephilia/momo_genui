@@ -1782,56 +1782,23 @@
   background: var(--accent);
 }
 
-/* Synchronized Theme Choreography Wave & Token Interpolation */
-.momo-theme-wave {
-  position: absolute;
-  left: -120px;
-  bottom: -120px;
-  width: 960px;
-  height: 960px;
-  border-radius: 999px;
+/* Theme Matrix Wipe — fullscreen canvas driven imperatively by rAF. A band of
+   accent squares sweeps diagonally; the theme flips beneath the band so the
+   wipe IS the transition (no per-element color tweens). */
+.theme-matrix-wipe {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 90;
   pointer-events: none;
-  z-index: 4;
-  background: radial-gradient(
-    circle,
-    color-mix(in srgb, var(--accent) 26%, transparent) 0%,
-    color-mix(in srgb, var(--accent) 10%, transparent) 44%,
-    transparent 72%
-  );
-  transform-origin: center;
-  will-change: transform, opacity;
 }
 
-html.theme-transitioning :is(
-  .app,
-  .side,
-  .main,
-  .momo-top-concave-fill,
-  .momo-top-concave-stroke,
-  .momo-view-tab-pill,
-  .momo-explore-sugg-card,
-  .momo-explore-lead,
-  .momo-explore-chapter,
-  .momo-board-column,
-  .momo-board-card,
-  .composer-shell,
-  .card,
-  .pop,
-  .side-profile-btn,
-  .side-profile-ava,
-  .profile-theme-track,
-  .profile-theme-thumb,
-  .skw-toggle-track,
-  .momo-margin-note
-) {
-  transition:
-    background-color 0.36s cubic-bezier(0.22, 1, 0.36, 1),
-    background 0.36s cubic-bezier(0.22, 1, 0.36, 1),
-    color 0.32s cubic-bezier(0.22, 1, 0.36, 1),
-    border-color 0.34s cubic-bezier(0.22, 1, 0.36, 1),
-    box-shadow 0.36s cubic-bezier(0.22, 1, 0.36, 1),
-    fill 0.34s cubic-bezier(0.22, 1, 0.36, 1),
-    stroke 0.34s cubic-bezier(0.22, 1, 0.36, 1) !important;
+/* While the wipe runs, every element snaps — no stray color tweens leaking
+   past the dot band. Restored when the wipe ends. */
+html.theme-wiping,
+html.theme-wiping * {
+  transition: none !important;
 }
 
 /* Borderless Seamless Top Bar & Gradient Sculpted Concave Crest Dock */

@@ -964,7 +964,6 @@ export const MomoAppShell: React.FC = () => {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [workspaceView, setWorkspaceView] = useState<WorkspaceViewId>("chat");
   const [viewDir, setViewDir] = useState<1 | -1>(1);
-  const [themeWaveSeq, setThemeWaveSeq] = useState(0);
   const hydrationSafeGreeting = useSyncExternalStore(
     noopSubscribe,
     heroGreeting,
@@ -975,7 +974,6 @@ export const MomoAppShell: React.FC = () => {
   const [, animateSide] = useAnimate();
   const [crestHovered, setCrestHovered] = useState(false);
   const crestCloseTimerRef = useRef<number | null>(null);
-  const themeWaveTimerRef = useRef<number | null>(null);
   const workspaceViewRef = useRef<WorkspaceViewId>(workspaceView);
   workspaceViewRef.current = workspaceView;
   const workspaceTabsCallbackRef = useCallback((el: HTMLElement | null) => {
@@ -1350,10 +1348,6 @@ export const MomoAppShell: React.FC = () => {
       document.removeEventListener("visibilitychange", onVis);
       if (raf1) cancelAnimationFrame(raf1);
       if (raf2) cancelAnimationFrame(raf2);
-      if (themeWaveTimerRef.current !== null) {
-        window.clearTimeout(themeWaveTimerRef.current);
-        themeWaveTimerRef.current = null;
-      }
     };
   }, []);
 
@@ -1677,22 +1671,216 @@ export const MomoAppShell: React.FC = () => {
     setWorkspaceView(nextView);
   }, []);
 
+  const wipeCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const wipeRafRef = useRef(0);
+  // Dot-matrix diagonal wipe: a traveling band of accent squares sweeps from
+  // the theme-toggle corner (bottom-left) to top-right; the theme flips the
+  // instant the wavefront covers the viewport center, so the reveal is the
+  // wave itself — no per-element color tweens, no patchwork.
+  const runThemeWipe = useCallback(
+    (onMidpoint: () => void) => {
+      const root = document.documentElement;
+      if (root.classList.contains("theme-wiping")) {
+        onMidpoint();
+        return;
+      }
+      const doc = document as Document & {
+        startViewTransition?: (cb: () => void) => {
+          ready: Promise<void>;
+          finished: Promise<void>;
+          skipTransition: () => void;
+        };
+      };
+      const W = window.innerWidth;
+      const H = window.innerHeight;
+      const diag = W + H;
+      // Progressive reveal: the new theme is literally wiped in through a
+      // dot-matrix mask on ::view-transition-new, whose front follows the same
+      // diagonal timing as the fallback canvas sweep.
+      if (!reduceMotion && doc.startViewTransition) {
+        try {
+          const cell = 18;
+          // Image slides straight up: mask-position 0 -wf. Screen w_s = x - y + H;
+          // a pixel covers iff its u = ix - iy + MH <= over, i.e. w_s <= wf.
+          const over = Math.ceil(diag * 1.3);
+          const MW = W + cell * 4;
+          const MH = H + over;
+          const u0 = over;
+          const uB0 = u0 - cell * 6;
+          const uB1 = u0 + cell * 12;
+          const mc = document.createElement("canvas");
+          mc.width = MW;
+          mc.height = MH;
+          const mctx = mc.getContext("2d");
+          if (!mctx) throw new Error("no 2d ctx");
+          mctx.fillStyle = "#000";
+          const jit = (x: number, y: number) => {
+            const h = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
+            return (h - Math.floor(h) - 0.5) * 0.14 * diag;
+          };
+          // No solid polygon at all — the diagonal is pure dot matrix: density
+          // ramps 0→1 and dense-end dots overlap into solid. Deep cells get a
+          // second guaranteed pass so coverage truly seals.
+          const cols = Math.ceil(MW / cell);
+          const rows = Math.ceil(MH / cell);
+          for (let cy = 0; cy < rows; cy++) {
+            for (let cx = 0; cx < cols; cx++) {
+              const px0 = cx * cell + cell / 2;
+              const py0 = cy * cell + cell / 2;
+              const u = px0 - py0 + MH + jit(cx, cy);
+              if (u > uB1) continue;
+              const p = Math.min(1, Math.max(0, (uB1 - u) / (uB1 - uB0)));
+              const h = Math.sin(cx * 269.5 + cy * 183.3) * 43758.5453;
+              const rnd = h - Math.floor(h);
+              const s2 = cell * (0.3 + Math.pow(p, 1.3) * 0.9);
+              mctx.globalAlpha = Math.max(0, Math.min(1, 0.5 + p * 0.5));
+              if (rnd <= p) {
+                mctx.fillRect(px0 - s2 / 2, py0 - s2 / 2, s2, s2);
+              }
+              if (u < uB0) {
+                mctx.globalAlpha = 1;
+                mctx.fillRect(px0 - cell / 2, py0 - cell / 2, cell, cell);
+              }
+            }
+          }
+          mctx.globalAlpha = 1;
+          const url = mc.toDataURL();
+          const styleEl = document.createElement("style");
+          styleEl.textContent = [
+            "::view-transition-old(root),::view-transition-new(root){animation:none!important;mix-blend-mode:normal}",
+            "::view-transition-group(root){animation:none!important}",
+            "::view-transition-old(root){z-index:1}",
+            "::view-transition-new(root){z-index:2}",
+            `::view-transition-new(root){mask-image:url("${url}")!important;mask-repeat:no-repeat!important;mask-size:${MW}px ${MH}px!important;-webkit-mask-image:url("${url}")!important;-webkit-mask-repeat:no-repeat!important;-webkit-mask-size:${MW}px ${MH}px!important}`,
+          ].join("\n");
+          document.head.appendChild(styleEl);
+          root.classList.add("theme-wiping");
+          const vt = doc.startViewTransition(() => {
+            onMidpoint();
+          });
+          const N = 28;
+          vt.ready
+            .then(() => {
+              const frames = [];
+              for (let i = 0; i <= N; i++) {
+                const wf = (Math.min(1, i / N) * 1.55 - 0.45) * diag;
+                frames.push({ maskPosition: `0px ${(-wf).toFixed(1)}px` });
+              }
+              root.animate(frames, {
+                duration: 980,
+                easing: "linear",
+                fill: "forwards",
+                pseudoElement: "::view-transition-new(root)",
+              } as KeyframeAnimationOptions);
+            })
+            .catch(() => {});
+          vt.finished
+            .catch(() => {})
+            .finally(() => {
+              requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                  root.classList.remove("theme-wiping");
+                  styleEl.remove();
+                });
+              });
+            });
+          return;
+        } catch {
+          root.classList.remove("theme-wiping");
+        }
+      }
+      const cv = wipeCanvasRef.current;
+      const ctx = cv?.getContext("2d");
+      if (!cv || !ctx || reduceMotion) {
+        onMidpoint();
+        return;
+      }
+      document.documentElement.classList.add("theme-wiping");
+      const ratio = Math.min(window.devicePixelRatio || 1, 1.75);
+      cv.width = Math.round(W * ratio);
+      cv.height = Math.round(H * ratio);
+      cv.style.width = `${W}px`;
+      cv.style.height = `${H}px`;
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      const cell = 18;
+      const sq = cell * 0.52;
+      const cols = Math.ceil(W / cell);
+      const rows = Math.ceil(H / cell);
+      const jit = (x: number, y: number) => {
+        const h = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
+        return (h - Math.floor(h) - 0.5) * 0.12;
+      };
+      const sqVar = (x: number, y: number) => {
+        const h = Math.sin(x * 41.7 + y * 97.3) * 43758.5453;
+        return sq * (0.66 + (h - Math.floor(h)) * 0.62);
+      };
+      const INK = "#141416";
+      const PAPER = "#f6f6f8";
+      const bw = (x: number, y: number) => {
+        const h = Math.sin(x * 269.5 + y * 183.3) * 43758.5453;
+        return h - Math.floor(h) < 0.5 ? INK : PAPER;
+      };
+      const DUR = 980;
+      const t0 = performance.now();
+      let flipped = false;
+      cancelAnimationFrame(wipeRafRef.current);
+      const step = (now: number) => {
+        const p = Math.min(1, (now - t0) / DUR);
+        const s = p * 1.55;
+        ctx.clearRect(0, 0, W, H);
+        for (let cy = 0; cy < rows; cy++) {
+          for (let cx = 0; cx < cols; cx++) {
+            const px = cx * cell + cell / 2;
+            const py = cy * cell + cell / 2;
+            const w = (px + (H - py)) / diag + jit(cx, cy);
+            const ignite = Math.min(1, Math.max(0, (s - w) / 0.1));
+            const out = Math.min(1, Math.max(0, (s - 0.5 - w) / 0.1));
+            const a = ignite - out;
+            if (a <= 0.02) continue;
+            const s2 = sqVar(cx, cy) * Math.min(1, a * 1.4);
+            ctx.fillStyle = bw(cx, cy);
+            ctx.globalAlpha = a * 0.97;
+            ctx.fillRect(px - s2 / 2, py - s2 / 2, s2, s2);
+          }
+        }
+        ctx.globalAlpha = 1;
+        if (!flipped && s > 0.62) {
+          flipped = true;
+          onMidpoint();
+        }
+        if (p < 1) {
+          wipeRafRef.current = requestAnimationFrame(step);
+        } else {
+          ctx.clearRect(0, 0, W, H);
+          document.documentElement.classList.remove("theme-wiping");
+        }
+      };
+      wipeRafRef.current = requestAnimationFrame(step);
+    },
+    [reduceMotion],
+  );
+  useEffect(() => () => cancelAnimationFrame(wipeRafRef.current), []);
+
   const setThemeMode = useCallback(
     (nextDark: boolean) => {
       const root = document.documentElement;
       const wasDark = root.dataset.theme === "dark";
       const resolved = nextDark ? "dark" : "light";
       root.classList.add("theme-ready");
-      if (wasDark !== nextDark) {
-        root.classList.add("theme-transitioning");
-        if (themeWaveTimerRef.current !== null) {
-          window.clearTimeout(themeWaveTimerRef.current);
+      const applyTheme = () => {
+        root.dataset.theme = resolved;
+        root.style.colorScheme = resolved;
+        document.querySelectorAll('meta[name="theme-color"]').forEach((m) => {
+          m.setAttribute("content", nextDark ? "#111113" : "#f8f8f9");
+        });
+        try {
+          localStorage.setItem(STORAGE_THEME_KEY, resolved);
+        } catch {
+          // ignore storage errors
         }
-        themeWaveTimerRef.current = window.setTimeout(() => {
-          themeWaveTimerRef.current = null;
-          root.classList.remove("theme-transitioning");
-        }, 540);
-        setThemeWaveSeq((s) => s + 1);
+        emitThemeChange();
+      };
+      if (wasDark !== nextDark) {
         stageRef.current.wakeFromIdle();
         stageRef.current.bumpSquash(-1.35);
         stageRef.current.triggerExpression("sparkle", 900);
@@ -1703,20 +1891,12 @@ export const MomoAppShell: React.FC = () => {
             { duration: 0.34, ease: EASE_MOMO },
           );
         }
+        runThemeWipe(applyTheme);
+      } else {
+        applyTheme();
       }
-      root.dataset.theme = resolved;
-      root.style.colorScheme = resolved;
-      document.querySelectorAll('meta[name="theme-color"]').forEach((m) => {
-        m.setAttribute("content", nextDark ? "#111113" : "#f8f8f9");
-      });
-      try {
-        localStorage.setItem(STORAGE_THEME_KEY, resolved);
-      } catch {
-        // ignore storage errors
-      }
-      emitThemeChange();
     },
-    [animateDock, dockScope],
+    [animateDock, dockScope, runThemeWipe],
   );
 
   const stopSpeechSynthesis = useCallback(() => {
@@ -4472,19 +4652,11 @@ export const MomoAppShell: React.FC = () => {
           offline={offline}
           sideHidden={sideHidden}
         />
-        <AnimatePresence>
-          {themeWaveSeq > 0 && (
-            <motion.div
-              key={`theme-wave-${themeWaveSeq}`}
-              className={`momo-theme-wave${dark ? " is-dark" : " is-light"}`}
-              aria-hidden="true"
-              initial={{ opacity: 0.52, scale: 0.2 }}
-              animate={{ opacity: 0, scale: 1.75 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.56, ease: EASE_MOMO }}
-            />
-          )}
-        </AnimatePresence>
+        <canvas
+          ref={wipeCanvasRef}
+          className="theme-matrix-wipe"
+          aria-hidden="true"
+        />
         <header
           className="bar top momo-top-bare"
           data-workspace-view={workspaceView}
