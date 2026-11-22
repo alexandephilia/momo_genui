@@ -651,6 +651,22 @@ export default function IntelligenceGraph({
   const lastFitWidthRef = useRef(0);
   const fitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  /* graphData is rebuilt inline by every adapter on each render — a new object
+     for identical content. Keying the layout effect on the object would rerun
+     ELK + refit on every unrelated parent re-render (e.g. sidebar toggle →
+     "zoom jumps back to default"). Serialize the content; relayout only when
+     the graph itself actually changes. */
+  const graphKey = useMemo(
+    () =>
+      JSON.stringify({
+        n: graphData.nodes,
+        e: graphData.edges,
+        l: graphData.layout,
+        d: graphData.direction,
+      }),
+    [graphData],
+  );
+
   useEffect(() => {
     setActiveLayout(graphData.layout || "layered");
   }, [graphData.layout, resolvedVariant]);
@@ -672,7 +688,8 @@ export default function IntelligenceGraph({
     return () => {
       cancelled = true;
     };
-  }, [graphData, activeLayout, resolvedVariant, setNodes, setEdges]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [graphKey, activeLayout, resolvedVariant, setNodes, setEdges]);
 
   useEffect(() => {
     if (!layoutReady || resolvedVariant !== "default") return;
@@ -683,19 +700,24 @@ export default function IntelligenceGraph({
     return () => cancelAnimationFrame(raf);
   }, [layoutReady, nodes.length, contentHeight, resolvedVariant]);
 
-  /* Refit only on a meaningful width change — mount animations, stream-in reflow
-     and sub-pixel jitter all fire RO constantly; each fire used to animate a
-     fresh fitView (the perpetual zoom in/out loop). */
+  /* On a meaningful width change, preserve zoom and recenter — never refit.
+     Sidebar open/close resizes the chat column ~248px; a refit here is the
+     "zoom jumps back to default" bug. Shifting x by dw/2 keeps whatever the
+     user is looking at centered instead. */
   useEffect(() => {
     const el = canvasRef.current;
     if (!el || typeof ResizeObserver === "undefined" || resolvedVariant !== "default") return;
     const observer = new ResizeObserver(() => {
       const w = el.clientWidth;
-      if (userInteractedRef.current || Math.abs(w - lastFitWidthRef.current) < 8) return;
+      const dw = w - lastFitWidthRef.current;
+      if (Math.abs(dw) < 8) return;
       lastFitWidthRef.current = w;
       if (fitTimerRef.current) clearTimeout(fitTimerRef.current);
       fitTimerRef.current = setTimeout(() => {
-        rfInstanceRef.current?.fitView(FIT_VIEW_OPTIONS);
+        const inst = rfInstanceRef.current;
+        if (!inst) return;
+        const vp = inst.getViewport();
+        void inst.setViewport({ x: vp.x + dw / 2, y: vp.y, zoom: vp.zoom }, { duration: 160 });
       }, 140);
     });
     observer.observe(el);

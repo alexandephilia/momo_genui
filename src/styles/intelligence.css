@@ -4448,6 +4448,12 @@ button.intel-subcard:hover,
   min-width: 0;
 }
 
+/* Long titles wrap the badge to a new line — keep it pinned right, not left. */
+.intel-subcard__row > .intel-badge {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
 .intel-subcard__title-group {
   display: flex;
   align-items: center;
