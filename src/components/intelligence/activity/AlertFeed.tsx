@@ -93,16 +93,17 @@ export default function AlertFeed({
   }, [onAction]);
 
   const grouped = useMemo(() => {
-    const visible = alerts.filter((a) => !dismissed.has(a.id));
     const groups: Record<AlertSeverity, AlertItem[]> = {
       critical: [],
       warning: [],
       info: [],
       success: [],
     };
-    for (const alert of visible) {
+    // LLM data may omit alert.id — synthesize one so keys/dismiss stay stable
+    for (const [i, alert] of alerts.entries()) {
+      if (dismissed.has(alert.id)) continue;
       const sev = groups[alert.severity] ? alert.severity : "info";
-      groups[sev].push(alert);
+      groups[sev].push({ ...alert, id: alert.id ?? `alert-${i}` });
     }
     return groups;
   }, [alerts, dismissed]);

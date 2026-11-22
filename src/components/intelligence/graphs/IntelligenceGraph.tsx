@@ -605,7 +605,9 @@ export interface IntelligenceGraphProps {
 }
 
 const FIT_VIEW_OPTIONS: FitViewOptions = {
-  padding: 0.12,
+  /* @xyflow v13: numeric padding is PIXELS (Math.floor(0.12) → 0 = edge-to-
+     edge fit). Percent must be a string. */
+  padding: "12%",
   maxZoom: 1.05,
   duration: 220,
 };
@@ -642,13 +644,17 @@ export default function IntelligenceGraph({
   const [contentHeight, setContentHeight] = useState<number>(220);
   const [fullscreen, setFullscreen] = useState(false);
   const [layoutReady, setLayoutReady] = useState(false);
+  const [rfReady, setRfReady] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const rfInstanceRef = useRef<ReactFlowInstance | null>(null);
   /* Once the user pans/zooms, auto-fitting must stop — yanking the viewport back
      under their cursor is the "keeps refocusing" bug reported in chat. */
   const userInteractedRef = useRef(false);
-  const lastFitWidthRef = useRef(0);
+  /* False until the first fitView finishes — and false again while a fit is
+     animating. The resize handler must never shift a viewport that hasn't
+     been fitted yet (mount race → graph shoved off-center). */
+  const hasFitRef = useRef(false);
   const fitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /* graphData is rebuilt inline by every adapter on each render — a new object
@@ -691,31 +697,52 @@ export default function IntelligenceGraph({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [graphKey, activeLayout, resolvedVariant, setNodes, setEdges]);
 
+  /* fitView before nodes are measured reads bogus bounds — the zoom/padding
+     lands wrong and the graph ends up shoved to an edge ("too far left").
+     Wait for real measured dimensions, then fit. Single path for initial
+     mount and re-layouts. */
   useEffect(() => {
-    if (!layoutReady || resolvedVariant !== "default") return;
-    const raf = requestAnimationFrame(() => {
-      lastFitWidthRef.current = canvasRef.current?.clientWidth ?? 0;
-      rfInstanceRef.current?.fitView(FIT_VIEW_OPTIONS);
-    });
+    if (!layoutReady || !rfReady || resolvedVariant !== "default") return;
+    let raf = 0;
+    let tries = 0;
+    const tick = () => {
+      const inst = rfInstanceRef.current;
+      if (!inst) return;
+      const measured = inst.getNodes().every((n) => n.measured?.width != null);
+      if (!measured && tries++ < 60) {
+        raf = requestAnimationFrame(tick);
+        return;
+      }
+      hasFitRef.current = false;
+      void Promise.resolve(inst.fitView(FIT_VIEW_OPTIONS)).finally(() => {
+        hasFitRef.current = true;
+      });
+    };
+    raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [layoutReady, nodes.length, contentHeight, resolvedVariant]);
+  }, [layoutReady, rfReady, nodes.length, contentHeight, resolvedVariant]);
 
   /* On a meaningful width change, preserve zoom and recenter — never refit.
      Sidebar open/close resizes the chat column ~248px; a refit here is the
      "zoom jumps back to default" bug. Shifting x by dw/2 keeps whatever the
-     user is looking at centered instead. */
+     user is looking at centered instead.
+
+     lastW is seeded at observe time and tracked in the closure — never
+     compare against 0 or a stale fit width, or the first RO callback reads
+     a bogus dw and shoves the viewport before/while fitView lands. */
   useEffect(() => {
     const el = canvasRef.current;
     if (!el || typeof ResizeObserver === "undefined" || resolvedVariant !== "default") return;
+    let lastW = el.clientWidth;
     const observer = new ResizeObserver(() => {
       const w = el.clientWidth;
-      const dw = w - lastFitWidthRef.current;
-      if (Math.abs(dw) < 8) return;
-      lastFitWidthRef.current = w;
+      const dw = w - lastW;
+      lastW = w;
+      if (Math.abs(dw) < 8 || !hasFitRef.current) return;
       if (fitTimerRef.current) clearTimeout(fitTimerRef.current);
       fitTimerRef.current = setTimeout(() => {
         const inst = rfInstanceRef.current;
-        if (!inst) return;
+        if (!inst || !hasFitRef.current) return;
         const vp = inst.getViewport();
         void inst.setViewport({ x: vp.x + dw / 2, y: vp.y, zoom: vp.zoom }, { duration: 160 });
       }, 140);
@@ -947,6 +974,7 @@ export default function IntelligenceGraph({
                 onPaneClick={() => setSelectedNode(null)}
                 onInit={(inst) => {
                   rfInstanceRef.current = inst;
+                  setRfReady(true);
                 }}
                 onMoveStart={(event) => {
                   /* event is null for programmatic moves (fitView/zoomTo) — only a
@@ -954,8 +982,6 @@ export default function IntelligenceGraph({
                   if (event) userInteractedRef.current = true;
                 }}
                 nodeTypes={mergedNodeTypes}
-                fitView
-                fitViewOptions={FIT_VIEW_OPTIONS}
                 zoomOnScroll={false}
                 preventScrolling={false}
                 proOptions={{ hideAttribution: true }}
